@@ -54,7 +54,7 @@ class Node:
         p = tau / total_stake
         j = 0
         print("last block: ", self.blockchain[-1])
-        vrf_hash = self.vrf(self.blockchain[-1], self.round, 1) #TODO: vary round and step
+        vrf_hash = self.vrf(self.blockchain[-1], self.round, 0) #TODO: vary round and step
         print("vrf_hash", vrf_hash)
         threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
         print("threshold: ", threshold)
@@ -64,35 +64,52 @@ class Node:
             if j == self.stake:
                 break
         
-        print(j)
+        # print(j)
         return j, vrf_hash
     
     def block_proposal(self, step):
-        pass    
+        j, vrf_hash = self.sortition(20, 300)
+        if j > 0:
+            max_priority, subuser_index = self.get_priority(vrf_hash, j)
+            gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
+            print("Block ready to be gossiped:", gossip_message)
+        else:
+            print("Node not selected for this round")
     
 
-    def priority(self, vrf_hash, subuser_count):
+    def get_priority(self, vrf_hash, subuser_count):
         priority = -1
+        subuser_index = -1
         for i in range(0, subuser_count + 1):
-            sub_priority = hashlib.sha256(vrf_hash + i)
-            if priority == -1 or int(sub_priority) < priority:
-                priority = int(sub_priority)
-        print(priority)
-        return priority
+            sub_priority = hashlib.sha256((vrf_hash + str(i)).encode()).hexdigest()
+            if priority == -1 or int(sub_priority, 16) < int(priority, 16):
+                priority = sub_priority
+                subuser_index = i
+                # print("subpriority:", sub_priority)
+        # print("max_priority:", priority)
+        return priority, subuser_index
     
     def nCr(self, n, r):
         f = math.factorial
         return f(n) // f(r) // f(n-r)
 
-
     def binomial_sum(self, j, w, p):
         sum = 0
         for k in range(0, j):
             sum += self.nCr(w, k) * (p ** k) * ((1 - p) ** (w - k))
-        print("summing for", j, "sum=", sum)
+        # print("summing for", j, "sum=", sum)
         return sum
+
+    def generateGossipMessage(self, vrf_hash, subuser_index, priority):
+        message = {
+            "round_number": self.round,
+            "vrf_hash": vrf_hash,
+            "subuser_index": subuser_index,
+            "priority": priority
+        }
+        return message
 
 node = Node()
 
 print(node.validatePayload(node.blockchain[0]))
-node.sortition(20, 100)
+node.block_proposal(1)
