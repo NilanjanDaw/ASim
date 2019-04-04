@@ -2,6 +2,7 @@ import ecdsa
 from random import randint
 from algorand import prg
 import hashlib
+import math
 
 class Node:
     def __init__(self):
@@ -13,6 +14,7 @@ class Node:
         self.generateCryptoKeys()
         genesis_block = self.formMessage(genesis_string)
         self.blockchain.append(genesis_block)
+        print("Node has {} stake".format(self.stake))
 
     def generateCryptoKeys(self):
         self.private_key = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
@@ -46,16 +48,36 @@ class Node:
         vrf_signature = ecdsa.SigningKey.from_pem(self.private_key).sign(prg(seed).encode()).hex()
         return vrf_signature
     
+    #TODO: check validitity of this function
     def sortition(self, tau, total_stake):
         p = tau / total_stake
         j = 0
+        print("last block: ", self.blockchain[-1])
         vrf_hash = self.vrf(self.blockchain[-1], 1, 1)
         print("vrf_hash", vrf_hash)
-        threshold = int(vrf_hash, 16) >> len(vrf_hash)
-        print(threshold)
+        threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
+        print("threshold: ", threshold)
 
+        while not (self.binomial_sum(j, self.stake, p) <= threshold <= self.binomial_sum(j + 1, self.stake, p)):
+            j += 1 # TODO: have a second look at the validity of this line (test corner cases)
+            if j == self.stake:
+                break
+        
+        print(j)
+    
+    def nCr(self, n, r):
+        f = math.factorial
+        return f(n) // f(r) // f(n-r)
+
+
+    def binomial_sum(self, j, w, p):
+        sum = 0
+        for k in range(0, j):
+            sum += self.nCr(w, k) * (p ** k) * ((1 - p) ** (w - k))
+        print("summing for", j, "sum=", sum)
+        return sum
 
 node = Node()
 
 print(node.validatePayload(node.blockchain[0]))
-node.sortition(20, 300)
+node.sortition(20, 100)
