@@ -9,6 +9,7 @@ class Node:
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
         self.private_key = None
         self.public_key = None
+        self.round = 0
         self.stake = randint(1, 50)
         self.blockchain = []
         self.generateCryptoKeys()
@@ -53,7 +54,7 @@ class Node:
         p = tau / total_stake
         j = 0
         print("last block: ", self.blockchain[-1])
-        vrf_hash = self.vrf(self.blockchain[-1], 1, 1)
+        vrf_hash = self.vrf(self.blockchain[-1], self.round, 1) #TODO: vary round and step
         print("vrf_hash", vrf_hash)
         threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
         print("threshold: ", threshold)
@@ -64,6 +65,20 @@ class Node:
                 break
         
         print(j)
+        return j, vrf_hash
+    
+    def block_proposal(self, step):
+        pass    
+    
+
+    def priority(self, vrf_hash, subuser_count):
+        priority = -1
+        for i in range(0, subuser_count + 1):
+            sub_priority = hashlib.sha256(vrf_hash + i)
+            if priority == -1 or int(sub_priority) < priority:
+                priority = int(sub_priority)
+        print(priority)
+        return priority
     
     def nCr(self, n, r):
         f = math.factorial
