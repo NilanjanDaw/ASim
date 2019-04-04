@@ -4,10 +4,15 @@ from algorand import prg
 import hashlib
 
 class Node:
-    def Node(self):
+    def __init__(self):
+        genesis_string = "We are building the best Algorand Discrete Event Simulator"
         self.private_key = None
         self.public_key = None
         self.stake = randint(1, 50)
+        self.blockchain = []
+        self.generateCryptoKeys()
+        genesis_block = self.formMessage(genesis_string)
+        self.blockchain.append(genesis_block)
 
     def generateCryptoKeys(self):
         self.private_key = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
@@ -40,11 +45,17 @@ class Node:
         print(seed)
         vrf_signature = ecdsa.SigningKey.from_pem(self.private_key).sign(prg(seed).encode()).hex()
         return vrf_signature
+    
+    def sortition(self, tau, total_stake):
+        p = tau / total_stake
+        j = 0
+        vrf_hash = self.vrf(self.blockchain[-1], 1, 1)
+        print("vrf_hash", vrf_hash)
+        threshold = int(vrf_hash, 16) >> len(vrf_hash)
+        print(threshold)
 
-genesis_string = "We are building the best Algorand Discrete Event Simulator"
+
 node = Node()
-node.generateCryptoKeys()
-genesis_block = node.formMessage(genesis_string)
-print(genesis_block)
-print(node.validatePayload(genesis_block))
-print("vrf", node.vrf(genesis_block, 1, 1))
+
+print(node.validatePayload(node.blockchain[0]))
+node.sortition(20, 300)
