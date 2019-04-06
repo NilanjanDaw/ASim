@@ -33,9 +33,12 @@ Simulation Time:
 Every node(algorand node) will have its own clock. 
 Say we want every node to wait for 3 seconds and then start operating on recieved blocks. Until these 3 seconds are finished, block proposers will execute their event of sending blocks to  other nodes and rest will work as relays. 
 Should we consider an EVENT as:
-### Node1 sending a block to Node2 (both send and recieve)
-### Or Send and Recieve as different events? Here, Node1 will push block in the queue of Node2. And this is one event in simulation process. 
-### While doing so, we'll decrement the clock-time of only the nodes which are involed in that Event. So here, the clock-time of Node1 and Node2 of 3 seconds will get decremented while other nodes will have their 3 seconds clock as it is.
+
+<b> Node1 sending block to Node2 (both send and recieve) </b>
+
+<b>Or Send and recieve as different events? Here, Node1 will push block in the queue of Node2. And this is one event in simulation process. </b>
+
+<b> While doing so, well decrement time of only the node which is involed in that Event. So here, Node1 and Node2 clock of 3 seconds will get reduced while other nodes will have their 3 seconds clock as it is. </b>
 
 
 
