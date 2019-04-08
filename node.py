@@ -1,16 +1,25 @@
 import ecdsa
+import network
 from random import randint
 from algorand import prg
 import hashlib
 import math
+import simpy
+import numpy as np
 
+SIM_DURATION = 25000
+NODE_COUNT = 10
+node_list = []
 class Node:
-    def __init__(self):
+    def __init__(self, node_id, env, network_delay):
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
+        self.node_id = node_id
         self.private_key = None
         self.public_key = None
         self.round = 0
         self.stake = randint(1, 50)
+        self.cable = network.Network(env, network_delay)
+        self.neighbourList = []
         self.blockchain = []
         self.generateCryptoKeys()
         genesis_block = self.formMessage(genesis_string)
@@ -22,8 +31,16 @@ class Node:
         self.public_key = self.private_key.get_verifying_key()
         self.public_key = self.public_key.to_pem()
         self.private_key = self.private_key.to_pem()
-
         # print(self.public_key, self.private_key)
+    
+    def populateNeighbourList(self, node_count, neighbour_min, neighbour_max):
+
+        neighbour_count = randint(neighbour_min, neighbour_max)
+        for x in range(neighbour_count):
+            self.neighbourList.append(randint(0, node_count - 1))
+        
+        print(self.neighbourList)
+
 
     def signPayload(self, payload):
         sk = ecdsa.SigningKey.from_pem(self.private_key) 
@@ -73,6 +90,7 @@ class Node:
             max_priority, subuser_index = self.get_priority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
             print("Block ready to be gossiped:", gossip_message)
+            return gossip_message
         else:
             print("Node not selected for this round")
     
@@ -88,6 +106,19 @@ class Node:
                 # print("subpriority:", sub_priority)
         # print("max_priority:", priority)
         return priority, subuser_index
+
+    def sendBlock(self, block):
+        global node_list
+        for id in self.neighbourList:
+            node_list[id].cable.put(block)
+        return 0
+    
+    def receiveBlock(self):
+        while True:
+            block = yield self.cable.get()
+            if block is not None:
+                print("====================================================")
+                print("{} received block {}".format(self.node_id, block))
     
     def nCr(self, n, r):
         f = math.factorial
@@ -109,7 +140,24 @@ class Node:
         }
         return message
 
-node = Node()
+def start_simulation(env, node):
+    
+        print(node.validatePayload(node.blockchain[0]))
+        while True:
+            yield env.timeout(5000)
+            block = node.block_proposal(1)
+            node.sendBlock(block)
 
-print(node.validatePayload(node.blockchain[0]))
-node.block_proposal(1)
+env = simpy.Environment()
+mu = 200
+signa = 400
+statistical_delay = max(0, np.random.normal(mu, signa, 1)[0])
+for node_id in range(NODE_COUNT):
+    node = Node(node_id, env, statistical_delay)
+    node.populateNeighbourList(NODE_COUNT, 4, 8)
+    env.process(node.receiveBlock())
+    node_list.append(node)
+for node in node_list:
+    env.process(start_simulation(env, node))
+
+env.run(until=SIM_DURATION)
