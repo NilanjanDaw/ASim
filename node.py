@@ -14,6 +14,7 @@ class Node:
         self.round = 0
         self.stake = randint(1, 50)
         self.cable = network.Network(env, network_delay)
+        self.gossip_block = None
         self.neighbourList = []
         self.blockchain = []
         self.blockcache = []
@@ -72,7 +73,7 @@ class Node:
         threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
         print("threshold: ", threshold)
 
-        while not (self.binomial_sum(j, self.stake, p) <= threshold <= self.binomial_sum(j + 1, self.stake, p)):
+        while not (self.binomialSum(j, self.stake, p) <= threshold <= self.binomialSum(j + 1, self.stake, p)):
             j += 1 # TODO: have a second look at the validity of this line (test corner cases)
             if j == self.stake:
                 break
@@ -80,18 +81,21 @@ class Node:
         # print(j)
         return j, vrf_hash
     
-    def block_proposal(self, step):
+    def priorityProposal(self, step):
         j, vrf_hash = self.sortition(20, 300)
         if j > 0:
-            max_priority, subuser_index = self.get_priority(vrf_hash, j)
+            max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
             print("Block ready to be gossiped:", gossip_message)
             return gossip_message
         else:
             print("Node not selected for this round")
-    
+            return None
 
-    def get_priority(self, vrf_hash, subuser_count):
+    def blockProposal(self):
+        pass
+
+    def getPriority(self, vrf_hash, subuser_count):
         priority = -1
         subuser_index = -1
         for i in range(0, subuser_count + 1):
@@ -119,7 +123,7 @@ class Node:
         f = math.factorial
         return f(n) // f(r) // f(n-r)
 
-    def binomial_sum(self, j, w, p):
+    def binomialSum(self, j, w, p):
         sum = 0
         for k in range(0, j):
             sum += self.nCr(w, k) * (p ** k) * ((1 - p) ** (w - k))
@@ -136,15 +140,14 @@ class Node:
         return message
     
     def checkLeader(self):
-        pass
+        if self.gossip_block is not None:
+            priority = min (block["priority"] for block in self.blockcache)
+            if self.gossip_block["priority"] < priority:
+                print("Node {} leader".format(self.node_id))
+                return True
+        else:
+            print("Node {} is not a proposer for this round".format(self.node_id))
+        
+        return False
 
-
-def start_simulation(env, node_list, node):
-    
-        print(node.validatePayload(node.blockchain[0]))
-        while True:
-            block = node.block_proposal(1)
-            node.sendBlock(node_list, block)
-            yield env.timeout(3000)
-            node.checkLeader()
 
