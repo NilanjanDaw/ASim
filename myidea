@@ -1,0 +1,23 @@
+Any message which is to be gossiped :
+ <message, pk(sender), metadata to verify the signature>
+
+To avoid gossiping a msg more than once --> keep track of all msgs and check if already gossiped.
+When to gossip a message:
+	1. 
+
+
+Node objects 2000
+obj1 sends meesage to obj2 : Event 1
+obj2 verifies : Event 2
+obj1 sends message to obj3: Event 3
+Obj2 relays msg to obj3 : Event 4
+obj1 sends to obj4 : Event 5
+.
+.
+.
+Events 1000
+
+
+so message passing will execute like this : 
+	obj1 sends to obj2 
+	There is a queue between obj1 and obj2.obj1 adds msg to shared queue and obj2 picks up from there.(Producer - consumer type)
