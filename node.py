@@ -1,29 +1,42 @@
 import ecdsa
+import network
 from random import randint
-from algorand import prg
+from helper import prg
 import hashlib
 import math
 
 class Node:
-    def __init__(self):
+    def __init__(self, node_id, env, network_delay):
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
+        self.node_id = node_id
         self.private_key = None
         self.public_key = None
         self.round = 0
         self.stake = randint(1, 50)
+        self.cable = network.Network(env, network_delay)
+        self.neighbourList = []
         self.blockchain = []
+        self.blockcache = []
         self.generateCryptoKeys()
         genesis_block = self.formMessage(genesis_string)
         self.blockchain.append(genesis_block)
-        print("Node has {} stake".format(self.stake))
+        print("Node {} has {} stake".format(self.node_id, self.stake))
 
     def generateCryptoKeys(self):
         self.private_key = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1)
         self.public_key = self.private_key.get_verifying_key()
         self.public_key = self.public_key.to_pem()
         self.private_key = self.private_key.to_pem()
-
         # print(self.public_key, self.private_key)
+    
+    def populateNeighbourList(self, node_count, neighbour_min, neighbour_max):
+
+        neighbour_count = randint(neighbour_min, neighbour_max)
+        for x in range(neighbour_count):
+            self.neighbourList.append(randint(0, node_count - 1))
+        
+        print("Node {} neighbour list".format(self.node_id), self.neighbourList)
+
 
     def signPayload(self, payload):
         sk = ecdsa.SigningKey.from_pem(self.private_key) 
@@ -53,9 +66,9 @@ class Node:
     def sortition(self, tau, total_stake):
         p = tau / total_stake
         j = 0
-        print("last block: ", self.blockchain[-1])
+        # print("last block: ", self.blockchain[-1])
         vrf_hash = self.vrf(self.blockchain[-1], self.round, 0) #TODO: vary round and step
-        print("vrf_hash", vrf_hash)
+        # print("vrf_hash", vrf_hash)
         threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
         print("threshold: ", threshold)
 
@@ -73,6 +86,7 @@ class Node:
             max_priority, subuser_index = self.get_priority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
             print("Block ready to be gossiped:", gossip_message)
+            return gossip_message
         else:
             print("Node not selected for this round")
     
@@ -88,6 +102,18 @@ class Node:
                 # print("subpriority:", sub_priority)
         # print("max_priority:", priority)
         return priority, subuser_index
+
+    def sendBlock(self, node_list, block):
+        for id in self.neighbourList:
+            node_list[id].cable.put(block)
+        return 0
+    
+    def receiveBlock(self):
+        while True:
+            block = yield self.cable.get()
+            if block is not None:
+                print("{} received block {}".format(self.node_id, block))
+                self.blockcache.append(block)
     
     def nCr(self, n, r):
         f = math.factorial
@@ -108,8 +134,17 @@ class Node:
             "priority": priority
         }
         return message
+    
+    def checkLeader(self):
+        pass
 
-node = Node()
 
-print(node.validatePayload(node.blockchain[0]))
-node.block_proposal(1)
+def start_simulation(env, node_list, node):
+    
+        print(node.validatePayload(node.blockchain[0]))
+        while True:
+            block = node.block_proposal(1)
+            node.sendBlock(node_list, block)
+            yield env.timeout(3000)
+            node.checkLeader()
+
