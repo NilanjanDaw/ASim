@@ -3,7 +3,7 @@ import simpy
 import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
-SIM_DURATION = 2500
+SIM_DURATION = 25000
 NODE_COUNT = 10
 node_list = []
 
@@ -23,6 +23,10 @@ def start_simulation(env, node_list, node):
         yield env.timeout(200)
         if node.checkLeader():
             node.blockProposal()
+        # if node.committeeSelection():
+        #     yield env.timeout(33) # should be 33 seconds
+        #     # cast vote
+        #     node.castVote()
 
 for node_id in range(NODE_COUNT):
     node = Node(node_id, env, statistical_delay, bc_pipe)
