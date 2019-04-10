@@ -1,12 +1,12 @@
 import ecdsa
 import network
 from random import randint
-from helper import prg
+from helper import prg, concatenate
 import hashlib
 import math
 
 class Node:
-    def __init__(self, node_id, env, network_delay):
+    def __init__(self, node_id, env, network_delay, bc_pipe):
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
         self.node_id = node_id
         self.private_key = None
@@ -18,6 +18,9 @@ class Node:
         self.neighbourList = []
         self.blockchain = []
         self.blockcache = []
+        self.blockcache_bc = []
+        self.broadcastpipe = bc_pipe #same pipe for all senders
+        self.env = env
         self.generateCryptoKeys()
         genesis_block = self.formMessage(genesis_string)
         self.blockchain.append(genesis_block)
@@ -59,7 +62,7 @@ class Node:
     def vrf(self, previous_block, round_number, step_number):
         
         seed = hashlib.sha256(str(previous_block).encode()).hexdigest() + str(round_number) + str(step_number)
-        print(seed)
+        # print(seed)
         vrf_signature = ecdsa.SigningKey.from_pem(self.private_key).sign(prg(seed).encode()).hex()
         return vrf_signature
     
@@ -71,7 +74,7 @@ class Node:
         vrf_hash = self.vrf(self.blockchain[-1], self.round, 0) #TODO: vary round and step
         # print("vrf_hash", vrf_hash)
         threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
-        print("threshold: ", threshold)
+        # print("threshold: ", threshold)
 
         while not (self.binomialSum(j, self.stake, p) <= threshold <= self.binomialSum(j + 1, self.stake, p)):
             j += 1 # TODO: have a second look at the validity of this line (test corner cases)
@@ -86,14 +89,42 @@ class Node:
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            print("Block ready to be gossiped:", gossip_message)
+            # print("Block ready to be gossiped:", gossip_message)
             return gossip_message
         else:
             print("Node not selected for this round")
             return None
 
     def blockProposal(self):
-        pass
+        print("block proposal started")
+        # "<SHA256(Previous block)||256 bit long random string || Node’s Priority payload>"
+        priority = min (block["priority"] for block in self.blockcache)
+        message = {
+            "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
+            "rand_str_256": prg(13), 
+            # check if it is correct
+            "priority_payload": priority,
+
+        }
+        self.message_generator(self.broadcastpipe, message)
+        print("block proposal done")
+    
+    def message_generator(self, out_pipe, message):
+        # This is the transmission delay but set it according to message length
+        # yield env.timeout(random.randint(6, 10))
+        # time = int(len(str(message))/32) # 16 char per sec transmission speed
+        # print("time calculated using bandwidth:",time,message,len(str(message)))
+        # yield env.timeout(time)
+        out_pipe.put(message)
+
+
+    def message_consumer(self, in_pipe):
+        while True:
+            msg = yield in_pipe.get()
+            print("msg receive--------------------------------")
+            self.blockcache_bc.append(msg)
+            print('received message: %s.' %(msg))
+
 
     def getPriority(self, vrf_hash, subuser_count):
         priority = -1
@@ -116,7 +147,7 @@ class Node:
         while True:
             block = yield self.cable.get()
             if block is not None:
-                print("{} received block {}".format(self.node_id, block))
+                # print("{} received block {}".format(self.node_id, block))
                 self.blockcache.append(block)
     
     def nCr(self, n, r):
@@ -138,16 +169,47 @@ class Node:
             "priority": priority
         }
         return message
+
+    def generateEmptyBlock(self, hash_prev_block, round, step, vrf_hash):
+        j, vrf_hash = self.sortition(20, 300)
+        # change it to json format
+        message = {
+            "hash_prev_block": sha256.hashlib(self.blockchain[-1]),
+            "round" : self.round,
+            "step" : self.step,
+            "msg" : "Empty", 
+            "vrf_hash" : vrf_hash,
+        }
+        return message
+        
+        
     
     def checkLeader(self):
         if self.gossip_block is not None:
-            priority = min (block["priority"] for block in self.blockcache)
-            if self.gossip_block["priority"] < priority:
-                print("Node {} leader".format(self.node_id))
-                return True
+            if len(self.blockcache) > 0:
+                priority = min (block["priority"] for block in self.blockcache)
+                if self.gossip_block["priority"] < priority:
+                    print("Node {} leader".format(self.node_id))
+                    return True
+            else:
+                print("blockcache empty")
         else:
             print("Node {} is not a proposer for this round".format(self.node_id))
         
         return False
+
+    def committeeSelection(self):
+        seed = sha256.hashlib(self.blockchain[-1]) + self.round + "1"
+        value = prg(seed)
+        j, vrf_hash = self.sortition(20,300)
+        # do cryptographic sortition , use tau_step
+        # return True/False based on selection
+        if j > 0:
+            return True
+        return False 
+
+    def castVote(self):
+        pass
+
 
 
