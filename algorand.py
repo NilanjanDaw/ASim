@@ -19,7 +19,7 @@ def start_simulation(env, node_list, node):
         if block is not None:
             node.sendBlock(node_list, block)
         node.gossip_block = block
-        yield env.timeout(3000)
+        yield env.timeout(3)
         if node.checkLeader():
             node.blockProposal()
 
@@ -29,6 +29,7 @@ for node_id in range(NODE_COUNT):
     env.process(node.receiveBlock())
     node_list.append(node)
 for node in node_list:
+    print("########################################################",env.now)
     env.process(start_simulation(env, node_list, node))
 
 env.run(until=SIM_DURATION)
