@@ -355,7 +355,7 @@ class Node:
         #   msg = messages.get() or messages.next() or whatever
         for msg in messages:  # use this if all messages are available
 
-            votes, block, public_key = self.process_message(TAU, msg)
+            votes, block, public_key = self.process_message(step, TAU, msg)
 
             # check if voter already voted or zero votes(invalid message)
             if (public_key in voters) or (votes == 0):
