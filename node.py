@@ -5,6 +5,23 @@ from helper import prg, concatenate
 import hashlib
 import math
 
+
+
+# Constants
+# Expected committee size
+TAU = 20
+
+# Majority fraction of votes for BA*, T_FRACTION > 2/3(0.666....)
+T_FRACTION = 68/100
+
+# (milliseconds), Wait for this time to listen to priorities broadcast
+LAMBDA_PROPOSER = 3000
+
+# (milliseconds), Wait for LAMBDA_PROPOSER + LAMBDA_BLOCK = 33seconds to get a
+# block proposal from highest priority node else commit for empty block
+LAMBDA_BLOCK = 30000
+
+
 class Node:
     def __init__(self, node_id, env, network_delay, bc_pipe):
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
@@ -85,7 +102,7 @@ class Node:
         return j, vrf_hash
     
     def priorityProposal(self, step):
-        j, vrf_hash = self.sortition(20, 300)
+        j, vrf_hash = self.sortition(TAU, 300)
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
@@ -170,20 +187,21 @@ class Node:
         }
         return message
 
+    # BUG: Why empty block require step & vrf_hash?? This will create a
+    #        different empty block for each user and no one will ever reach
+    #        consensus.
     def generateEmptyBlock(self, hash_prev_block, round, step, vrf_hash):
-        j, vrf_hash = self.sortition(20, 300)
+        j, vrf_hash = self.sortition(TAU, 300)
         # change it to json format
         message = {
-            "hash_prev_block": sha256.hashlib(self.blockchain[-1]),
+            "hash_prev_block": hashlib.sha256(self.blockchain[-1]),
             "round" : self.round,
             "step" : self.step,
             "msg" : "Empty", 
             "vrf_hash" : vrf_hash,
         }
         return message
-        
-        
-    
+
     def checkLeader(self):
         if self.gossip_block is not None:
             if len(self.blockcache) > 0:
@@ -199,17 +217,198 @@ class Node:
         return False
 
     def committeeSelection(self):
-        seed = sha256.hashlib(self.blockchain[-1]) + self.round + "1"
+        seed = hashlib.sha256(self.blockchain[-1]) + self.round + "1"
         value = prg(seed)
-        j, vrf_hash = self.sortition(20,300)
+        j, vrf_hash = self.sortition(TAU, 300)
         # do cryptographic sortition , use tau_step
         # return True/False based on selection
         if j > 0:
             return True
         return False 
 
-    def castVote(self):
-        pass
+    def reduction(self, hblock):
+        """
+        Performs Reduction.
 
+        Arguments:
+        hblock -- Highest priority block
 
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
 
+        # TODO: Get highest priority block
+
+        self.committee_vote("Reduction_1", TAU, hblock)
+
+        # TODO: Search tag "where_timeout".
+        #       Possible timeout needed, my doubt is where is it needed. This
+        #       node waits for lamda_block + lamda_step seconds before
+        #       counting for votes. Should timeout here or inside count_vote
+        #       function. Add timeout of lamda_block + lamda_step
+
+        hblock_1 = self.count_votes("Reduction_1", T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+
+        # FIXME: Why empty block require step & vrf_hash??
+        empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
+                                              self.round,
+                                              "Reduction_2",
+                                              self.sortition(TAU, 300)[1])
+        if not hblock_1:
+            self.committee_vote("Reduction_2", TAU, empty_block)
+        else:
+            self.committee_vote("Reduction_2", TAU, hblock_1)
+
+        # TODO: Same issue as search tag "where_timeout"
+        hblock_2 = self.count_votes("Reduction_1", T_FRACTION, TAU,
+                                    LAMBDA_BLOCK + LAMBDA_PROPOSER)
+
+        if not hblock_2:
+            return empty_block
+
+        return hblock_2
+
+    def committee_vote(self, step, tau, hblock):
+        """
+        Verifiy if user is a committee member.
+        
+        Arguments:
+        step   -- Name of the step eg. Reduction_1
+        tau    -- expected number of committee members
+        hblock -- Highest priority block
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+
+        # TODO: Proper sortition verification
+
+        # FIXME: Select one of the below if statements
+        # j, vrf_hash = self.sortition(tau, 300)
+        # if j > 0:
+        #     # TODO: search tag "vote_gossip_message"
+        #     #       gossip<user.pk,
+        #     #               signedmessage<self.round,
+        #     #                             self.step,
+        #     #                             vrf_hash,
+        #     #                             j,
+        #     #                             sortition_proof,
+        #     #                             hash(self.blockchain[-1]),
+        #     #                             hblock
+        #     #                            >
+        #     #              >
+        #     # Probably use "formmessage" or whatever.
+        #     # Make compatible with self.validatePayload
+        #     pass
+        
+        # if self.committeeSelection():
+        #     # TODO: search tag "vote_gossip_message"
+        #     #       gossip<user.pk,
+        #     #               signedmessage<self.round,
+        #     #                             self.step,
+        #     #                             hash(self.blockchain[-1]),
+        #     #                             hblock
+        #     #                            >
+        #     #              >
+        #     # Probably use "formmessage" or whatever.
+        #     # Make compatible with self.validatePayload
+        #     pass
+
+    def count_votes(self, step, majority_frac, tau, wait_time):
+        """
+        Performs Reduction.
+
+        Arguments:
+        step          -- Name of the step eg. Reduction_1
+        majority_frac -- fraction of votes for majority
+        tau           -- expected number of committee members
+        wait_time     -- time to wait for block proposals, if no proposals
+                         recieved vote for empty block.
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+
+        # TODO: Check if following line gets the current time properly
+        # TODO: Dicuss timeout. start varible is required for it in algo 5 of
+        #       paper search "where_timeout".
+        # start: int = self.env.now
+
+        count = {}  # count votes Dictionary[Block, votes]
+        voters = set()  # set of voters Set[public key]
+
+        # TODO: Get messages vote messages from network. I didn't send
+        #       messages. We have to add that functionality. To find where the
+        #       messages enter the network serach "vote_gossip_message"
+        messages = []
+
+        # TODO: Discuss how to put delay. Followup from reduction function,
+        #       search "where_timeout".
+
+        # TODO: Select appropriate loop
+        # While True:  # use this if all messages are not available at time
+        #              # this function runs
+        #   msg = messages.get() or messages.next() or whatever
+        for msg in messages:  # use this if all messages are available
+
+            votes, block, public_key = self.process_message(TAU, msg)
+
+            # check if voter already voted or zero votes(invalid message)
+            if (public_key in voters) or (votes == 0):
+                continue
+
+            voters.add(public_key)
+
+            if block in count:
+                count[block] += votes
+            else:
+                count[block] = votes
+
+            if count[block] > majority_frac * tau:
+                return block
+        
+        # TODO: Fix according to the network overlay chosen. This statement is
+        #       for no messages received case
+        if not messages:
+            return None
+
+    def process_message(self, step, tau, hblock_gossip_msg):
+        """
+        Check validity of message and Return parsed values.
+
+        Arguments:
+        step              -- Name of the step eg. Reduction_1
+        tau               -- expected number of committee members
+        hblock_gossip_msg -- gossip messages from committee_vote
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+
+        default_reply = 0, None, None  # reply in case of errors
+        msg = hblock_gossip_msg  # rename for comfort
+
+        # TODO: Fix according to message attributes
+        if not (msg["step"] == step and
+                msg["round"] == self.round):
+            return default_reply
+
+        # TODO: Verify compliance with self.validatePayload(msg)
+        if not self.validatePayload(msg):
+            return default_reply
+
+        # TODO: Fix according to message attributes
+        if msg["hash_prev_block"] != hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest():
+            return default_reply
+
+        # TODO: Fix accorinding to message attributes
+        votes = msg["subvoters"]  # j from sortition function
+        pk = msg["user_pk"]       # public key of message sender
+        block = msg["hblock"]     # block
+
+        return votes, pk, block
