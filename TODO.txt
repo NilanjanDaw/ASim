@@ -1,0 +1,8 @@
+1) Formalise messages attributes for different types of messages and adjust code accoridngly.
+	Message changes accomodated:
+	a) Athul
+	b) Nikhil
+	c) Nilanjan
+2) Create Network interface for vote gossip messages.
+3) Move function not belonging to respective classes like generatekeys, binomial_sum etc to helper.py.
+   I(athul) created too much clutter already.
