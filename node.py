@@ -21,6 +21,9 @@ LAMBDA_PROPOSER = 3000
 # block proposal from highest priority node else commit for empty block
 LAMBDA_BLOCK = 30000
 
+# Maximum number of steps for BinaryBA*
+MAX_STEPS = 15
+
 
 class Node:
     def __init__(self, node_id, env, network_delay, bc_pipe):
@@ -251,6 +254,10 @@ class Node:
         hblock_1 = self.count_votes("Reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
+        # FIXME: Fix Cryptographic sortition sprtition
+        if self.committeeSelection():
+            pass
+
         # FIXME: Why empty block require step & vrf_hash??
         empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
                                               self.round,
@@ -355,13 +362,13 @@ class Node:
         #   msg = messages.get() or messages.next() or whatever
         for msg in messages:  # use this if all messages are available
 
-            votes, block, public_key = self.process_message(step, TAU, msg)
+            votes, block, sorthash = self.process_message(step, TAU, msg)
 
             # check if voter already voted or zero votes(invalid message)
-            if (public_key in voters) or (votes == 0):
+            if (sorthash["user_pk"] in voters) or (votes == 0):
                 continue
 
-            voters.add(public_key)
+            voters.add(sorthash["user_pk"])
 
             if block in count:
                 count[block] += votes
@@ -377,6 +384,7 @@ class Node:
             return None
 
     def process_message(self, step, tau, hblock_gossip_msg):
+        # TODO: Fix verfiy sortition of another user.
         """
         Check validity of message and Return parsed values.
 
@@ -406,9 +414,165 @@ class Node:
         if msg["hash_prev_block"] != hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest():
             return default_reply
 
+        # TODO: implement verify sortition function
+        subusers, vrf_hash = self.verifysort()
+        if not subusers:
+            return default_reply
+
         # TODO: Fix accorinding to message attributes
         votes = msg["subvoters"]  # j from sortition function
-        pk = msg["user_pk"]       # public key of message sender
         block = msg["hblock"]     # block
+        
+        sorthash = {}       # sortition details
+        sorthash["user_pk"] = msg["user_pk"]
+        sorthash["subusers"] = subusers
+        sorthash["vrf_hash"] = vrf_hash
+        
 
-        return votes, pk, block
+        return votes, block, sorthash
+    
+    def binary_ba_star(self, block):
+        """
+        Reach consensus on a given block or empty block.
+
+        Arguments:
+        block -- block selected from reduction step
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+
+        # Sir said to start at 3. Algorithm starts at 1
+        # TODO: Discuss steps to be string or integer!
+        step = 3
+        r = block
+        # FIXME: Why empty block require step & vrf_hash??
+        empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
+                                              self.round,
+                                              "3",
+                                              self.sortition(TAU, 300)[1])
+        
+        while step < MAX_STEPS:
+            self.committee_vote(str(step), TAU, r)
+            r = self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            
+            if not r:
+                r = block
+            elif r != empty_block:
+                # TODO: Comfirm understanding.
+                for i in range(step+1, step+4):
+                    self.committee_vote(str(i), TAU, r)
+                
+                # TODO: Discuss Value of i = 3 or 1
+                # TODO: Discuss why TAU_final different
+                if step == 3:
+                    self.committee_vote("final", TAU, r)
+                return r
+            
+            step += 1
+
+            self.committee_vote(str(step), TAU, r)
+            r = self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            
+            if not r:
+                r = empty_block
+            elif r == empty_block:
+                for i in range(step+1, step+4):
+                    self.committee_vote(str(i), TAU, r)
+                
+                return r
+            
+            step += 1
+            
+            self.committee_vote(str(step), TAU, r)
+            r = self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            
+            if not r:
+                if self.common_coin(str(step), TAU) == 0:
+                    r = block
+                else:
+                    r = empty_block
+
+            step += 1
+        
+        self.hangforever()
+    
+    def hangforever(self):
+        error_msg = "Node #" + str(self.node_id) + ": Hanged forever"
+        print(error_msg)
+        while True:
+            """yo! yo! honey singh"""
+            pass
+
+    def common_coin(self, step, tau):
+        """
+        Compute common coin of all users
+
+        Arguments:
+        step              -- Name of the step eg. Reduction_1
+        tau               -- expected number of committee members
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+        # 256 is the length of sha256
+        minhash = 2 ** 256
+
+        # TODO: Create a network interface for messages
+        messages = []
+
+        for msg in messages:
+            votes, value, sorthash = self.process_message(step, TAU, msg)
+            for i in range(1, votes):
+                hash_subuser = str(sorthash["vrf_hash"]) + str(i)
+                h = hashlib.sha256(hash_subuser.encode()).hexdigest()
+                h = int(h, 16)
+                if(h < minhash):
+                    minhash = h
+        
+        return minhash % 2
+
+    def ba_star(self, block):
+        """
+        Agreement protocol. Base function
+
+        Arguments:
+
+        Hidden Arguments:
+        ctx   -- Blockchain, state of ledger
+        round -- round number
+        """
+
+        hblock = self.reduction(block)
+        hblock_star = self.binary_ba_star(block)
+
+        r = self.count_votes("final", T_FRACTION, TAU,
+                             LAMBDA_BLOCK + LAMBDA_PROPOSER)
+        
+        if hblock_star == r:
+            # TODO: Adjust block chain to handle tentative and final block
+            return ("final", hblock_star)
+        
+        else:
+            return ("tentative", hblock_star)
+        
+
+
+
+
+            
+
+            
+
+            
+                    
+
+
+        
+        
+
