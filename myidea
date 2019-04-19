@@ -21,3 +21,8 @@ Events 1000
 so message passing will execute like this : 
 	obj1 sends to obj2 
 	There is a queue between obj1 and obj2.obj1 adds msg to shared queue and obj2 picks up from there.(Producer - consumer type)
+
+
+Athul
+=====
+BA* Votes for hashes of blocks. We can use blocks instead of hash as there are no constraints from network.
