@@ -26,7 +26,7 @@ MAX_STEPS = 15
 
 
 class Node:
-    def __init__(self, node_id, env, network_delay, bc_pipe):
+    def __init__(self, node_id, env, network_delay, bc_pipe, bc_pipe_c):
         genesis_string = "We are building the best Algorand Discrete Event Simulator"
         self.node_id = node_id
         self.private_key = None
@@ -39,7 +39,9 @@ class Node:
         self.blockchain = []
         self.blockcache = []
         self.blockcache_bc = []
+        self.committeeBlockQueue_bc = []
         self.broadcastpipe = bc_pipe #same pipe for all senders
+        self.broadcastpipe_committee = bc_pipe_c
         self.env = env
         self.generateCryptoKeys()
         genesis_block = self.formMessage(genesis_string)
@@ -143,6 +145,17 @@ class Node:
             msg = yield in_pipe.get()
             print("msg receive--------------------------------")
             self.blockcache_bc.append(msg)
+            print('received message: %s.' %(msg))
+
+    def message_generator_c(self, out_pipe, message):
+        out_pipe.put(message)
+
+
+    def message_consumer_c(self, in_pipe):
+        while True:
+            msg = yield in_pipe.get()
+            print("msg receive----committee----------------")
+            self.committeeBlockQueue_bc.append(msg)
             print('received message: %s.' %(msg))
 
 
@@ -310,7 +323,9 @@ class Node:
         #     # Probably use "formmessage" or whatever.
         #     # Make compatible with self.validatePayload
         #     pass
-        
+        # message = "ur msg"
+        # self.message_generator(self.broadcastpipe, message)
+
         # if self.committeeSelection():
         #     # TODO: search tag "vote_gossip_message"
         #     #       gossip<user.pk,
