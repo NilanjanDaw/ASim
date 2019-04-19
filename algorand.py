@@ -35,6 +35,7 @@ for node_id in range(NODE_COUNT):
     env.process(node.message_consumer(bc_pipe.get_output_conn()))
     node_list.append(node)
 for node in node_list:
+    print("########################################################",env.now)
     env.process(start_simulation(env, node_list, node))
 
 env.run(until=SIM_DURATION)
