@@ -21,6 +21,7 @@ def sender(env, cable):
     """A process which randomly generates messages."""
     while True:
         # wait for next transmission
+        # TODO: Check if this timeout is required
         yield env.timeout(5000)
         cable.put('Sender sent this at %d' % env.now)
 

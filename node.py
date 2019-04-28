@@ -1,9 +1,10 @@
 import ecdsa
 import network
 from random import randint
-from helper import prg, concatenate
+from helper import *
 import hashlib
 import math
+
 
 
 
@@ -24,15 +25,17 @@ LAMBDA_BLOCK = 30000
 # Maximum number of steps for BinaryBA*
 MAX_STEPS = 15
 
+# Genesis String
+genesis_string = "We are building the best Algorand Discrete Event Simulator"
 
 class Node:
     def __init__(self, node_id, env, network_delay, bc_pipe, bc_pipe_c):
-        genesis_string = "We are building the best Algorand Discrete Event Simulator"
         self.node_id = node_id
         self.private_key = None
         self.public_key = None
         self.round = 0
         self.stake = randint(1, 50)
+        self.total_stake = 0
         self.cable = network.Network(env, network_delay)
         self.gossip_block = None
         self.neighbourList = []
@@ -44,7 +47,7 @@ class Node:
         self.broadcastpipe_committee = bc_pipe_c
         self.env = env
         self.generateCryptoKeys()
-        genesis_block = self.formMessage(genesis_string)
+        genesis_block = {"prev_hash": 0, "payload": genesis_string}
         self.blockchain.append(genesis_block)
         print("Node {} has {} stake".format(self.node_id, self.stake))
 
@@ -69,45 +72,24 @@ class Node:
         signature = sk.sign(str.encode(payload))
         return signature
     
-    def formMessage(self, payload):
-        msg = {
-            "payload": payload,
-            "public_key": self.public_key,
-            "signature": self.signPayload(payload).hex()
-        }
-        return msg
+    # def formMessage(self, payload):
+    #     msg = {
+    #         "payload": payload,
+    #         "public_key": self.public_key,
+    #         "signature": self.signPayload(payload).hex()
+    #     }
+    #     return msg
     
     def validatePayload(self, payload):
         verifying_key = ecdsa.VerifyingKey.from_pem(payload['public_key'])
         return verifying_key.verify(bytes.fromhex(payload["signature"]), payload["payload"].encode())
     
-    def vrf(self, previous_block, round_number, step_number):
-        
-        seed = hashlib.sha256(str(previous_block).encode()).hexdigest() + str(round_number) + str(step_number)
-        # print(seed)
-        vrf_signature = ecdsa.SigningKey.from_pem(self.private_key).sign(prg(seed).encode()).hex()
-        return vrf_signature
-    
-    #TODO: check validitity of this function
-    def sortition(self, tau, total_stake):
-        p = tau / total_stake
-        j = 0
-        # print("last block: ", self.blockchain[-1])
-        vrf_hash = self.vrf(self.blockchain[-1], self.round, 0) #TODO: vary round and step
-        # print("vrf_hash", vrf_hash)
-        threshold = int(vrf_hash, 16) / (2 ** (len(vrf_hash) * 4))
-        # print("threshold: ", threshold)
 
-        while not (self.binomialSum(j, self.stake, p) <= threshold <= self.binomialSum(j + 1, self.stake, p)):
-            j += 1 # TODO: have a second look at the validity of this line (test corner cases)
-            if j == self.stake:
-                break
-        
-        # print(j)
-        return j, vrf_hash
     
     def priorityProposal(self, step):
-        j, vrf_hash = self.sortition(TAU, 300)
+        seed = vrf_seed(self.last_block_hash, self.round, step)
+        j, vrf_hash = sortition(self.private_key, seed, TAU,
+                                self.stake, self.total_stake)
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
@@ -182,17 +164,6 @@ class Node:
             if block is not None:
                 # print("{} received block {}".format(self.node_id, block))
                 self.blockcache.append(block)
-    
-    def nCr(self, n, r):
-        f = math.factorial
-        return f(n) // f(r) // f(n-r)
-
-    def binomialSum(self, j, w, p):
-        sum = 0
-        for k in range(0, j):
-            sum += self.nCr(w, k) * (p ** k) * ((1 - p) ** (w - k))
-        # print("summing for", j, "sum=", sum)
-        return sum
 
     def generateGossipMessage(self, vrf_hash, subuser_index, priority):
         message = {
@@ -207,7 +178,9 @@ class Node:
     #        different empty block for each user and no one will ever reach
     #        consensus.
     def generateEmptyBlock(self, hash_prev_block, round, step, vrf_hash):
-        j, vrf_hash = self.sortition(TAU, 300)
+        seed = vrf_seed(hash_prev_block, self.round, step)
+        j, vrf_hash = sortition(self.private_key, seed, TAU,
+                                self.stake, self.total_stake)
         # change it to json format
         message = {
             "hash_prev_block": hashlib.sha256(self.blockchain[-1]),
@@ -235,7 +208,9 @@ class Node:
     def committeeSelection(self):
         seed = hashlib.sha256(self.blockchain[-1]) + self.round + "1"
         value = prg(seed)
-        j, vrf_hash = self.sortition(TAU, 300)
+        # seed = vrf_seed(self.last_block_hash, self.round, step)
+        j, vrf_hash = sortition(self.private_key, value, TAU,
+                                self.stake, self.total_stake)
         # do cryptographic sortition , use tau_step
         # return True/False based on selection
         if j > 0:
@@ -247,7 +222,7 @@ class Node:
         Performs Reduction.
 
         Arguments:
-        hblock -- Highest priority block
+        hblock -- hash of Highest priority block
 
         Hidden Arguments:
         ctx   -- Blockchain, state of ledger
@@ -256,37 +231,33 @@ class Node:
 
         # TODO: Get highest priority block
 
-        self.committee_vote("Reduction_1", TAU, hblock)
+        self.committee_vote("reduction_1", TAU, hblock)
 
         # TODO: Search tag "where_timeout".
         #       Possible timeout needed, my doubt is where is it needed. This
         #       node waits for lamda_block + lamda_step seconds before
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
-
-        hblock_1 = self.count_votes("Reduction_1", T_FRACTION, TAU,
+        
+        
+        yield self.env.timeout(300)
+        hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
-        # FIXME: Fix Cryptographic sortition sprtition
-        if self.committeeSelection():
-            pass
-
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
-                                              self.round,
-                                              "Reduction_2",
-                                              self.sortition(TAU, 300)[1])
+        empty_block_hash  = self.empty_block_hash
         if not hblock_1:
-            self.committee_vote("Reduction_2", TAU, empty_block)
+            self.committee_vote("reduction_2", TAU, empty_block_hash )
         else:
-            self.committee_vote("Reduction_2", TAU, hblock_1)
+            self.committee_vote("reduction_2", TAU, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
-        hblock_2 = self.count_votes("Reduction_1", T_FRACTION, TAU,
+        yield self.env.timeout(300)
+        hblock_2 = self.count_votes("reduction_2", T_FRACTION, TAU,
                                     LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
         if not hblock_2:
-            return empty_block
+            return empty_block_hash 
 
         return hblock_2
 
@@ -303,41 +274,32 @@ class Node:
         ctx   -- Blockchain, state of ledger
         round -- round number
         """
+        seed = vrf_seed(self.last_block_hash, self.round, step)
+        j, vrf_hash = sortition(self.private_key, seed, TAU,
+                                self.stake, self.total_stake)
 
-        # TODO: Proper sortition verification
+        if j > 0:
+            payload = {
+                        "round": self.round,
+                        "step": step,
+                        "vrf_hash": vrf_hash,
+                        "j": j,
+                        "prev_block_hash": self.last_block_hash,
+                        "prop_block_hash": hblock,
+                        "stake": self.stake
+                      }
+            
+            signature = self.signPayload(str(payload)).hex()
 
-        # FIXME: Select one of the below if statements
-        # j, vrf_hash = self.sortition(tau, 300)
-        # if j > 0:
-        #     # TODO: search tag "vote_gossip_message"
-        #     #       gossip<user.pk,
-        #     #               signedmessage<self.round,
-        #     #                             self.step,
-        #     #                             vrf_hash,
-        #     #                             j,
-        #     #                             sortition_proof,
-        #     #                             hash(self.blockchain[-1]),
-        #     #                             hblock
-        #     #                            >
-        #     #              >
-        #     # Probably use "formmessage" or whatever.
-        #     # Make compatible with self.validatePayload
-        #     pass
-        # message = "ur msg"
-        # self.message_generator(self.broadcastpipe, message)
+            message = {
+                        "public_key": self.public_key,
+                        "payload": payload,
+                        "signature": signature
+                      }
 
-        # if self.committeeSelection():
-        #     # TODO: search tag "vote_gossip_message"
-        #     #       gossip<user.pk,
-        #     #               signedmessage<self.round,
-        #     #                             self.step,
-        #     #                             hash(self.blockchain[-1]),
-        #     #                             hblock
-        #     #                            >
-        #     #              >
-        #     # Probably use "formmessage" or whatever.
-        #     # Make compatible with self.validatePayload
-        #     pass
+            self.message_generator(self.broadcastpipe_committee, message)
+        else:
+            print("committee_vote: not committee member")
 
     def count_votes(self, step, majority_frac, tau, wait_time):
         """
@@ -355,32 +317,27 @@ class Node:
         round -- round number
         """
 
-        # TODO: Check if following line gets the current time properly
-        # TODO: Dicuss timeout. start varible is required for it in algo 5 of
-        #       paper search "where_timeout".
-        # start: int = self.env.now
-
         count = {}  # count votes Dictionary[Block, votes]
         voters = set()  # set of voters Set[public key]
 
-        # TODO: Get messages vote messages from network. I didn't send
-        #       messages. We have to add that functionality. To find where the
-        #       messages enter the network serach "vote_gossip_message"
-        messages = []
+        messages = self.committeeBlockQueue_bc
+        self.committeeBlockQueue_bc = []
 
         # TODO: Discuss how to put delay. Followup from reduction function,
         #       search "where_timeout".
 
-        # TODO: Select appropriate loop
-        # While True:  # use this if all messages are not available at time
-        #              # this function runs
-        #   msg = messages.get() or messages.next() or whatever
         for msg in messages:  # use this if all messages are available
+
+            if not ((msg["payload"]["round"] == self.round) and
+                    (msg["payload"]["step"] == step)):
+                print("count_votes: message skipped due to different rounds")
+                continue
 
             votes, block, sorthash = self.process_message(step, TAU, msg)
 
             # check if voter already voted or zero votes(invalid message)
-            if (sorthash["user_pk"] in voters) or (votes == 0):
+            if (votes == 0) or (sorthash["user_pk"] in voters):
+                print("node.count_votes: default reply or zero votes")
                 continue
 
             voters.add(sorthash["user_pk"])
@@ -393,10 +350,8 @@ class Node:
             if count[block] > majority_frac * tau:
                 return block
         
-        # TODO: Fix according to the network overlay chosen. This statement is
-        #       for no messages received case
-        if not messages:
-            return None
+        print("count_votes: no block selected")
+        return None
 
     def process_message(self, step, tau, hblock_gossip_msg):
         # TODO: Fix verfiy sortition of another user.
@@ -416,34 +371,38 @@ class Node:
         default_reply = 0, None, None  # reply in case of errors
         msg = hblock_gossip_msg  # rename for comfort
 
-        # TODO: Fix according to message attributes
-        if not (msg["step"] == step and
-                msg["round"] == self.round):
+        if not validate_signature(msg["public_key"],
+                                  str(msg["payload"]),
+                                  msg["signature"]):
+            print("node.process_message: signature verify failed")
             return default_reply
 
-        # TODO: Verify compliance with self.validatePayload(msg)
-        if not self.validatePayload(msg):
-            return default_reply
-
-        # TODO: Fix according to message attributes
-        if msg["hash_prev_block"] != hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest():
+        if msg["payload"]["prev_block_hash"] != self.last_block_hash:
+            print("node.process_message: last block hash not match")
             return default_reply
 
         # TODO: implement verify sortition function
-        subusers, vrf_hash = self.verifysort()
+        seed = vrf_seed(self.last_block_hash, self.round, step)
+        subusers = verify_sort(msg["public_key"],
+                               msg["payload"]["vrf_hash"],
+                               seed,
+                               TAU,
+                               msg["payload"]["stake"],
+                               self.total_stake)
+        
         if not subusers:
+            print("node.process_message: no sub users")
             return default_reply
 
         # TODO: Fix accorinding to message attributes
-        votes = msg["subvoters"]  # j from sortition function
-        block = msg["hblock"]     # block
+        votes = subusers  # j from sortition function
+        block = msg["payload"]["prop_block_hash"]     # block
         
         sorthash = {}       # sortition details
-        sorthash["user_pk"] = msg["user_pk"]
+        sorthash["user_pk"] = msg["public_key"]
         sorthash["subusers"] = subusers
-        sorthash["vrf_hash"] = vrf_hash
+        sorthash["vrf_hash"] = msg["payload"]["vrf_hash"]
         
-
         return votes, block, sorthash
     
     def binary_ba_star(self, block):
@@ -463,19 +422,17 @@ class Node:
         step = 3
         r = block
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
-                                              self.round,
-                                              "3",
-                                              self.sortition(TAU, 300)[1])
+        empty_block_hash  = self.empty_block_hash
         
         while step < MAX_STEPS:
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
             if not r:
                 r = block
-            elif r != empty_block:
+            elif r != empty_block_hash :
                 # TODO: Comfirm understanding.
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
@@ -489,12 +446,13 @@ class Node:
             step += 1
 
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
             if not r:
-                r = empty_block
-            elif r == empty_block:
+                r = empty_block_hash
+            elif r == empty_block_hash:
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
                 
@@ -503,6 +461,7 @@ class Node:
             step += 1
             
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
@@ -510,10 +469,11 @@ class Node:
                 if self.common_coin(str(step), TAU) == 0:
                     r = block
                 else:
-                    r = empty_block
+                    r = empty_block_hash
 
             step += 1
         
+        print("node.binary_ba_star: hanging forever")
         self.hangforever()
     
     def hangforever(self):
@@ -538,8 +498,8 @@ class Node:
         # 256 is the length of sha256
         minhash = 2 ** 256
 
-        # TODO: Create a network interface for messages
-        messages = []
+        messages = self.committeeBlockQueue_bc
+        self.committeeBlockQueue_bc = []
 
         for msg in messages:
             votes, value, sorthash = self.process_message(step, TAU, msg)
@@ -557,15 +517,15 @@ class Node:
         Agreement protocol. Base function
 
         Arguments:
-
+        block -- hash of highest priority block
         Hidden Arguments:
         ctx   -- Blockchain, state of ledger
         round -- round number
         """
 
         hblock = self.reduction(block)
-        hblock_star = self.binary_ba_star(block)
-
+        hblock_star = self.binary_ba_star(hblock)
+        yield self.env.timeout(300)
         r = self.count_votes("final", T_FRACTION, TAU,
                              LAMBDA_BLOCK + LAMBDA_PROPOSER)
         
@@ -576,18 +536,95 @@ class Node:
         else:
             return ("tentative", hblock_star)
         
+    def get_hblock(self, clear=True):
+        """
+        Return highest priority block from blockcache
+        Highest priority block is the block with lowest priority
 
+        Arguments:
+        clear -- whether clear blockcache or not
 
-
-
-            
-
-            
-
-            
-                    
-
-
+        Hidden Arguments:
+        blockcache -- Blockchain, state of ledger
+        """
+        cache = self.blockcache
+        if clear:
+            self.blockcache = []
         
+        if cache:
+            minblock = cache[0]
+            for block in cache:
+                if int(minblock["priority"], 16) < int(block["priority"], 16):
+                    minblock = block
+
+            return minblock
+        return None
+    
+    @property
+    def last_block(self):
+        """Return last block of blockchain."""
+        return self.blockchain[-1]
+    
+    @property
+    def last_block_hash(self):
+        """Return hash of last block of blockchain."""
+        return hashlib.sha256(str(self.last_block).encode()).hexdigest()
+    
+    @property
+    def empty_block_hash(self):
+        """
+        Returns hash of emptyblock for consensus
+
+        Hidden Arguments:
+        last_block_hash -- hash of last block of blockchain
+        round           -- round number
+        """
+        msg = {
+            "hash_prev_block": self.last_block_hash,
+            # TODO: Check whether round number is required
+            "round" : self.round,
+            "payload" : "Empty",
+        }
+
+        return hashlib.sha256(str(msg).encode()).hexdigest()
+
+    @property
+    def empty_block(self):
+        """
+        Returns emptyblock for consensus
+
+        Hidden Arguments:
+        last_block_hash -- hash of last block of blockchain
+        round           -- round number
+        """
+        msg = {
+            "hash_prev_block": self.last_block_hash,
+            # TODO: Check whether round number is required
+            "round" : self.round,
+            "payload" : "Empty",
+        }
+
+        return msg
+
+    def run_ba_star(self):
+        """BA_Star driver."""
+        print("node.run_ba_star: hello")
+        block = self.get_hblock()
+        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
+        state, block = self.ba_star(block_hash)
+        print("state:",
+              state,
+              "\nblock:",
+              block)
         
+        #TODO: remove this and find some way to add actual blocks
+        if block == self.empty_block_hash:
+            print("node.run_ba_star: i agree empty block")
+            self.blockchain.append(self.empty_block)
+        else:
+            print("node.run_ba_star: i agreed on a non empty block")
+            yield self.env.timeout(10**100)
+        
+        self.round += 1
+
 
