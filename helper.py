@@ -73,6 +73,11 @@ def verify_sort(public_key, vrf_hash, seed, tau, stake, total_stake):
     return j
 
 
+def validate_signature(public_key, message, signature):
+    public_key = ecdsa.VerifyingKey.from_pem(public_key)
+    return public_key.verify(bytes.fromhex(signature), message.encode())
+
+
 # seed = "lol"
 
 # private_key = ecdsa.SigningKey.generate()

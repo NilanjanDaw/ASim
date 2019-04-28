@@ -231,15 +231,16 @@ class Node:
 
         # TODO: Get highest priority block
 
-        self.committee_vote("1", TAU, hblock)
+        self.committee_vote("reduction_1", TAU, hblock)
 
         # TODO: Search tag "where_timeout".
         #       Possible timeout needed, my doubt is where is it needed. This
         #       node waits for lamda_block + lamda_step seconds before
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
-
-        hblock_1 = self.count_votes("1", T_FRACTION, TAU,
+        self.env.timeout(33000)
+        
+        hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
         # FIXME: Fix Cryptographic sortition sprtition
@@ -249,12 +250,12 @@ class Node:
         # FIXME: Why empty block require step & vrf_hash??
         empty_block = self.empty_block_hash
         if not hblock_1:
-            self.committee_vote("Reduction_2", TAU, empty_block)
+            self.committee_vote("reduction_2", TAU, empty_block)
         else:
-            self.committee_vote("Reduction_2", TAU, hblock_1)
+            self.committee_vote("reduction_2", TAU, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
-        hblock_2 = self.count_votes("Reduction_1", T_FRACTION, TAU,
+        hblock_2 = self.count_votes("reduction_2", T_FRACTION, TAU,
                                     LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
         if not hblock_2:
@@ -299,6 +300,8 @@ class Node:
                       }
 
             self.message_generator(self.broadcastpipe_committee, message)
+        else:
+            print("committee_vote: not committee member")
 
     def count_votes(self, step, majority_frac, tau, wait_time):
         """
@@ -316,32 +319,27 @@ class Node:
         round -- round number
         """
 
-        # TODO: Check if following line gets the current time properly
-        # TODO: Dicuss timeout. start varible is required for it in algo 5 of
-        #       paper search "where_timeout".
-        # start: int = self.env.now
-
         count = {}  # count votes Dictionary[Block, votes]
         voters = set()  # set of voters Set[public key]
 
-        # TODO: Get messages vote messages from network. I didn't send
-        #       messages. We have to add that functionality. To find where the
-        #       messages enter the network serach "vote_gossip_message"
-        messages = []
+        messages = self.committeeBlockQueue_bc
+        self.committeeBlockQueue_bc = []
 
         # TODO: Discuss how to put delay. Followup from reduction function,
         #       search "where_timeout".
 
-        # TODO: Select appropriate loop
-        # While True:  # use this if all messages are not available at time
-        #              # this function runs
-        #   msg = messages.get() or messages.next() or whatever
         for msg in messages:  # use this if all messages are available
+
+            if not ((msg["payload"]["round"] == self.round) and
+                    (msg["payload"]["step"] == step)):
+                print("count_votes: message skipped due to different rounds")
+                continue
 
             votes, block, sorthash = self.process_message(step, TAU, msg)
 
             # check if voter already voted or zero votes(invalid message)
-            if (sorthash["user_pk"] in voters) or (votes == 0):
+            if (votes == 0) or (sorthash["user_pk"] in voters):
+                print("node.count_votes: default reply or zero votes")
                 continue
 
             voters.add(sorthash["user_pk"])
@@ -354,10 +352,8 @@ class Node:
             if count[block] > majority_frac * tau:
                 return block
         
-        # TODO: Fix according to the network overlay chosen. This statement is
-        #       for no messages received case
-        if not messages:
-            return None
+        print("count_votes: no block selected")
+        return None
 
     def process_message(self, step, tau, hblock_gossip_msg):
         # TODO: Fix verfiy sortition of another user.
@@ -377,34 +373,38 @@ class Node:
         default_reply = 0, None, None  # reply in case of errors
         msg = hblock_gossip_msg  # rename for comfort
 
-        # TODO: Fix according to message attributes
-        if not (msg["step"] == step and
-                msg["round"] == self.round):
+        if not validate_signature(msg["public_key"],
+                                  str(msg["payload"]),
+                                  msg["signature"]):
+            print("node.process_message: signature verify failed")
             return default_reply
 
-        # TODO: Verify compliance with self.validatePayload(msg)
-        if not self.validatePayload(msg):
-            return default_reply
-
-        # TODO: Fix according to message attributes
-        if msg["hash_prev_block"] != hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest():
+        if msg["payload"]["prev_block_hash"] != self.last_block_hash:
+            print("node.process_message: last block hash not match")
             return default_reply
 
         # TODO: implement verify sortition function
-        subusers, vrf_hash = self.verifysort()
+        seed = vrf_seed(self.last_block_hash, self.round, step)
+        subusers = verify_sort(msg["public_key"],
+                               msg["payload"]["vrf_hash"],
+                               seed,
+                               TAU,
+                               msg["payload"]["stake"],
+                               self.total_stake)
+        
         if not subusers:
+            print("node.process_message: no sub users")
             return default_reply
 
         # TODO: Fix accorinding to message attributes
-        votes = msg["subvoters"]  # j from sortition function
-        block = msg["hblock"]     # block
+        votes = subusers  # j from sortition function
+        block = msg["payload"]["prop_block_hash"]     # block
         
         sorthash = {}       # sortition details
-        sorthash["user_pk"] = msg["user_pk"]
+        sorthash["user_pk"] = msg["public_key"]
         sorthash["subusers"] = subusers
-        sorthash["vrf_hash"] = vrf_hash
+        sorthash["vrf_hash"] = msg["payload"]["vrf_hash"]
         
-
         return votes, block, sorthash
     
     def binary_ba_star(self, block):
