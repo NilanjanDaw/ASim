@@ -239,8 +239,6 @@ class Node:
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
         
-        
-        yield self.env.timeout(300)
         hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
@@ -252,7 +250,7 @@ class Node:
             self.committee_vote("reduction_2", TAU, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
-        yield self.env.timeout(300)
+
         hblock_2 = self.count_votes("reduction_2", T_FRACTION, TAU,
                                     LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
@@ -301,6 +299,10 @@ class Node:
         else:
             print("committee_vote: not committee member")
 
+    def dummy_timeout(self, env, wait_time):
+        yield env.timeout(wait_time)
+        return wait_time
+
     def count_votes(self, step, majority_frac, tau, wait_time):
         """
         Performs Reduction.
@@ -316,7 +318,7 @@ class Node:
         ctx   -- Blockchain, state of ledger
         round -- round number
         """
-
+        dummy = yield self.env.process(self.dummy_timeout(self.env, wait_time))
         count = {}  # count votes Dictionary[Block, votes]
         voters = set()  # set of voters Set[public key]
 
@@ -422,11 +424,11 @@ class Node:
         step = 3
         r = block
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block_hash  = self.empty_block_hash
+        empty_block_hash = self.empty_block_hash
         
         while step < MAX_STEPS:
             self.committee_vote(str(step), TAU, r)
-            yield self.env.timeout(300)
+
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
@@ -446,7 +448,7 @@ class Node:
             step += 1
 
             self.committee_vote(str(step), TAU, r)
-            yield self.env.timeout(300)
+
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
@@ -461,7 +463,7 @@ class Node:
             step += 1
             
             self.committee_vote(str(step), TAU, r)
-            yield self.env.timeout(300)
+
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
@@ -525,7 +527,7 @@ class Node:
 
         hblock = self.reduction(block)
         hblock_star = self.binary_ba_star(hblock)
-        yield self.env.timeout(300)
+
         r = self.count_votes("final", T_FRACTION, TAU,
                              LAMBDA_BLOCK + LAMBDA_PROPOSER)
         
@@ -547,7 +549,7 @@ class Node:
         Hidden Arguments:
         blockcache -- Blockchain, state of ledger
         """
-        cache = self.blockcache
+        cache = self.blockcache_bc
         if clear:
             self.blockcache = []
         
@@ -618,13 +620,13 @@ class Node:
               block)
         
         #TODO: remove this and find some way to add actual blocks
-        if block == self.empty_block_hash:
-            print("node.run_ba_star: i agree empty block")
-            self.blockchain.append(self.empty_block)
-        else:
-            print("node.run_ba_star: i agreed on a non empty block")
-            yield self.env.timeout(10**100)
+        # if block == self.empty_block_hash:
+        #     print("node.run_ba_star: i agree empty block")
+        #     self.blockchain.append(self.empty_block)
+        # else:
+        #     print("node.run_ba_star: i agreed on a non empty block")
+        #     yield self.env.timeout(10**100)
         
-        self.round += 1
+        # self.round += 1
 
 

@@ -19,6 +19,7 @@ bc_pipe_c = BroadcastPipe(env)
 def start_simulation(env, node_list, node):
     # TODO: Check this time out
     # This was a fix for improper starting of this function
+    print("Node:", node.node_id, "started.......")
     yield env.timeout(0)
     loop_counter = 0
 #     print(node.validatePayload(node.blockchain[0]))
@@ -36,7 +37,9 @@ def start_simulation(env, node_list, node):
         yield env.timeout(1000)
 
         # Logging states of nodes
-        print("blockchain:",
+        print(env.now,
+              ":",
+              "blockchain:",
               node.node_id,
               ":",
               loop_counter,
@@ -44,7 +47,9 @@ def start_simulation(env, node_list, node):
               len(node.blockchain),
               ":",
               node.blockchain)
-        print("blockcache:",
+        print(env.now,
+              ":",
+              "blockcache:",
               node.node_id,
               ":",
               loop_counter,
@@ -52,7 +57,9 @@ def start_simulation(env, node_list, node):
               len(node.blockcache),
               ":",
               node.blockcache)
-        print("blockcache_bc:",
+        print(env.now,
+              ":",
+              "blockcache_bc:",
               node.node_id,
               ":",
               loop_counter,
@@ -60,7 +67,9 @@ def start_simulation(env, node_list, node):
               len(node.blockcache_bc),
               ":",
               node.blockcache_bc)
-        print("committeeBlockQueue_bc:",
+        print(env.now,
+              ":",
+              "committeeBlockQueue_bc:",
               node.node_id,
               ":",
               loop_counter,
@@ -69,7 +78,9 @@ def start_simulation(env, node_list, node):
               ":",
               node.committeeBlockQueue_bc)
         
-        print("highestpriority:",
+        print(env.now,
+              ":",
+              "highestpriority:",
               node.node_id,
               ":",
               loop_counter,
