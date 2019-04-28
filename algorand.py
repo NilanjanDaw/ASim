@@ -86,13 +86,20 @@ def start_simulation(env, node_list, node):
         #     node.castVote()
         loop_counter += 1
 
+total_stake = 0
+
 for node_id in range(NODE_COUNT):
     node = Node(node_id, env, statistical_delay, bc_pipe, bc_pipe_c)
     node.populateNeighbourList(NODE_COUNT, 4, 8)
+    total_stake += node.stake
     env.process(node.receiveBlock())
     env.process(node.message_consumer(bc_pipe.get_output_conn()))
     env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
     node_list.append(node)
+
+for node in node_list:
+    node.total_stake = total_stake
+
 for node in node_list:
     print("########################################################",env.now)
     env.process(start_simulation(env, node_list, node))
