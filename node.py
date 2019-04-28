@@ -243,10 +243,6 @@ class Node:
         hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
-        # FIXME: Fix Cryptographic sortition sprtition
-        if self.committeeSelection():
-            pass
-
         # FIXME: Why empty block require step & vrf_hash??
         empty_block = self.empty_block_hash
         if not hblock_1:
