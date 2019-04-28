@@ -557,7 +557,7 @@ class Node:
         Agreement protocol. Base function
 
         Arguments:
-
+        block -- hash of highest priority block
         Hidden Arguments:
         ctx   -- Blockchain, state of ledger
         round -- round number
@@ -576,18 +576,67 @@ class Node:
         else:
             return ("tentative", hblock_star)
         
+    def get_hblock(self, clear=True):
+        """
+        Return highest priority block from blockcache
+        Highest priority block is the block with lowest priority
+
+        Arguments:
+        clear -- whether clear blockcache or not
+
+        Hidden Arguments:
+        blockcache -- Blockchain, state of ledger
+        """
+        cache = self.blockcache
+        if clear:
+            self.blockcache = []
+        
+        if cache:
+            minblock = cache[0]
+            for block in cache:
+                if int(minblock["priority"], 16) < int(block["priority"], 16):
+                    minblock = block
+
+            return minblock
+        return None
+    
+    @property
+    def last_block(self):
+        """Return last block of blockchain."""
+        return self.blockchain[-1]
+    
+    @property
+    def last_block_hash(self):
+        """Return hash of last block of blockchain."""
+        return hashlib.sha256(str(self.last_block).encode()).hexdigest()
+    
+    @property
+    def empty_block_hash(self):
+        """
+        Returns a emptyblock for consensus
+
+        Hidden Arguments:
+        last_block_hash -- hash of last block of blockchain
+        round           -- round number
+        """
+        msg = {
+            "hash_prev_block": self.last_block_hash,
+            "round" : self.round,
+            "msg" : "Empty",
+        }
+
+        return hashlib.sha256(str(msg).encode()).hexdigest()
 
 
-
-
-            
-
-            
-
-            
-                    
-
-
+    def run_ba_star(self):
+        """BA_Star driver."""
+        
+        block = self.get_hblock()
+        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
+        state, block = self.ba_star(block_hash)
         
         
 
+
+
+        
