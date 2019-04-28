@@ -238,24 +238,26 @@ class Node:
         #       node waits for lamda_block + lamda_step seconds before
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
-        self.env.timeout(33000)
         
+        
+        yield self.env.timeout(300)
         hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block = self.empty_block_hash
+        empty_block_hash  = self.empty_block_hash
         if not hblock_1:
-            self.committee_vote("reduction_2", TAU, empty_block)
+            self.committee_vote("reduction_2", TAU, empty_block_hash )
         else:
             self.committee_vote("reduction_2", TAU, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
+        yield self.env.timeout(300)
         hblock_2 = self.count_votes("reduction_2", T_FRACTION, TAU,
                                     LAMBDA_BLOCK + LAMBDA_PROPOSER)
 
         if not hblock_2:
-            return empty_block
+            return empty_block_hash 
 
         return hblock_2
 
@@ -420,19 +422,17 @@ class Node:
         step = 3
         r = block
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block = self.generateEmptyBlock(hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(),
-                                              self.round,
-                                              "3",
-                                              self.sortition(TAU, self.total_stake)[1])
+        empty_block_hash  = self.empty_block_hash
         
         while step < MAX_STEPS:
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
             if not r:
                 r = block
-            elif r != empty_block:
+            elif r != empty_block_hash :
                 # TODO: Comfirm understanding.
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
@@ -446,12 +446,13 @@ class Node:
             step += 1
 
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
             if not r:
-                r = empty_block
-            elif r == empty_block:
+                r = empty_block_hash
+            elif r == empty_block_hash:
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
                 
@@ -460,6 +461,7 @@ class Node:
             step += 1
             
             self.committee_vote(str(step), TAU, r)
+            yield self.env.timeout(300)
             r = self.count_votes(str(step), T_FRACTION, TAU,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER)
             
@@ -467,10 +469,11 @@ class Node:
                 if self.common_coin(str(step), TAU) == 0:
                     r = block
                 else:
-                    r = empty_block
+                    r = empty_block_hash
 
             step += 1
         
+        print("node.binary_ba_star: hanging forever")
         self.hangforever()
     
     def hangforever(self):
@@ -495,8 +498,8 @@ class Node:
         # 256 is the length of sha256
         minhash = 2 ** 256
 
-        # TODO: Create a network interface for messages
-        messages = []
+        messages = self.committeeBlockQueue_bc
+        self.committeeBlockQueue_bc = []
 
         for msg in messages:
             votes, value, sorthash = self.process_message(step, TAU, msg)
@@ -521,8 +524,8 @@ class Node:
         """
 
         hblock = self.reduction(block)
-        hblock_star = self.binary_ba_star(block)
-
+        hblock_star = self.binary_ba_star(hblock)
+        yield self.env.timeout(300)
         r = self.count_votes("final", T_FRACTION, TAU,
                              LAMBDA_BLOCK + LAMBDA_PROPOSER)
         
@@ -570,7 +573,7 @@ class Node:
     @property
     def empty_block_hash(self):
         """
-        Returns a emptyblock for consensus
+        Returns hash of emptyblock for consensus
 
         Hidden Arguments:
         last_block_hash -- hash of last block of blockchain
@@ -585,10 +588,43 @@ class Node:
 
         return hashlib.sha256(str(msg).encode()).hexdigest()
 
+    @property
+    def empty_block(self):
+        """
+        Returns emptyblock for consensus
+
+        Hidden Arguments:
+        last_block_hash -- hash of last block of blockchain
+        round           -- round number
+        """
+        msg = {
+            "hash_prev_block": self.last_block_hash,
+            # TODO: Check whether round number is required
+            "round" : self.round,
+            "payload" : "Empty",
+        }
+
+        return msg
 
     def run_ba_star(self):
         """BA_Star driver."""
-        
+        print("node.run_ba_star: hello")
         block = self.get_hblock()
         block_hash = hashlib.sha256(str(block).encode()).hexdigest()
         state, block = self.ba_star(block_hash)
+        print("state:",
+              state,
+              "\nblock:",
+              block)
+        
+        #TODO: remove this and find some way to add actual blocks
+        if block == self.empty_block_hash:
+            print("node.run_ba_star: i agree empty block")
+            self.blockchain.append(self.empty_block)
+        else:
+            print("node.run_ba_star: i agreed on a non empty block")
+            yield self.env.timeout(10**100)
+        
+        self.round += 1
+
+

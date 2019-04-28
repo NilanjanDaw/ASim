@@ -21,7 +21,7 @@ def start_simulation(env, node_list, node):
     # This was a fix for improper starting of this function
     yield env.timeout(0)
     loop_counter = 0
-    print(node.validatePayload(node.blockchain[0]))
+#     print(node.validatePayload(node.blockchain[0]))
     while True:
         block = node.priorityProposal(1)
         if block is not None:
@@ -33,7 +33,7 @@ def start_simulation(env, node_list, node):
         if node.checkLeader():
             node.blockProposal()
         
-        yield env.timeout(3000)
+        yield env.timeout(1000)
 
         # Logging states of nodes
         print("blockchain:",
@@ -75,6 +75,9 @@ def start_simulation(env, node_list, node):
               loop_counter,
               ":",
               node.get_hblock(clear=False))
+        
+        
+        node.run_ba_star()
         # self.blockchain = []
         # self.blockcache = []
         # self.blockcache_bc = []
