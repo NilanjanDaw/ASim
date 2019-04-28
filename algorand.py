@@ -27,7 +27,9 @@ def start_simulation(env, node_list, node):
         if block is not None:
             node.sendBlock(node_list, block)
         node.gossip_block = block
+
         # yield env.timeout(200)
+        yield env.timeout(0)
         if node.checkLeader():
             node.blockProposal()
         
@@ -66,7 +68,13 @@ def start_simulation(env, node_list, node):
               len(node.committeeBlockQueue_bc),
               ":",
               node.committeeBlockQueue_bc)
-              
+        
+        print("highestpriority:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              node.get_hblock(clear=False))
         # self.blockchain = []
         # self.blockcache = []
         # self.blockcache_bc = []
