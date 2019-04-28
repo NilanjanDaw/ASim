@@ -20,6 +20,7 @@ def start_simulation(env, node_list, node):
     # TODO: Check this time out
     # This was a fix for improper starting of this function
     yield env.timeout(0)
+    loop_counter = 0
     print(node.validatePayload(node.blockchain[0]))
     while True:
         block = node.priorityProposal(1)
@@ -29,10 +30,53 @@ def start_simulation(env, node_list, node):
         # yield env.timeout(200)
         if node.checkLeader():
             node.blockProposal()
+        
+        yield env.timeout(3000)
+
+        # Logging states of nodes
+        print("blockchain:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockchain),
+              ":",
+              node.blockchain)
+        print("blockcache:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockcache),
+              ":",
+              node.blockcache)
+        print("blockcache_bc:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockcache_bc),
+              ":",
+              node.blockcache_bc)
+        print("committeeBlockQueue_bc:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.committeeBlockQueue_bc),
+              ":",
+              node.committeeBlockQueue_bc)
+              
+        # self.blockchain = []
+        # self.blockcache = []
+        # self.blockcache_bc = []
+        # self.committeeBlockQueue_bc = []
+
         # if node.committeeSelection():
         #     yield env.timeout(33) # should be 33 seconds
         #     # cast vote
         #     node.castVote()
+        loop_counter += 1
 
 for node_id in range(NODE_COUNT):
     node = Node(node_id, env, statistical_delay, bc_pipe, bc_pipe_c)
