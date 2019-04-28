@@ -14,14 +14,19 @@ signa = 400
 statistical_delay = max(0, np.random.normal(mu, signa, 1)[0])
 bc_pipe = BroadcastPipe(env)
 bc_pipe_c = BroadcastPipe(env)
+
+
 def start_simulation(env, node_list, node):
+    # TODO: Check this time out
+    # This was a fix for improper starting of this function
+    yield env.timeout(0)
     print(node.validatePayload(node.blockchain[0]))
     while True:
         block = node.priorityProposal(1)
         if block is not None:
             node.sendBlock(node_list, block)
         node.gossip_block = block
-        yield env.timeout(200)
+        # yield env.timeout(200)
         if node.checkLeader():
             node.blockProposal()
         # if node.committeeSelection():
