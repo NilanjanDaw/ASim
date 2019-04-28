@@ -14,7 +14,8 @@ signa = 400
 statistical_delay = max(0, np.random.normal(mu, signa, 1)[0])
 bc_pipe = BroadcastPipe(env)
 bc_pipe_c = BroadcastPipe(env)
-def start_simulation(env, node_list, node):
+def start_simulation(env, node_list, node, timeout):
+    yield env.timeout(timeout)
     print(node.validatePayload(node.blockchain[0]))
     while True:
         block = node.priorityProposal(1)
@@ -36,8 +37,11 @@ for node_id in range(NODE_COUNT):
     env.process(node.message_consumer(bc_pipe.get_output_conn()))
     env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
     node_list.append(node)
+
+i = 1 
 for node in node_list:
     print("########################################################",env.now)
-    env.process(start_simulation(env, node_list, node))
+    env.process(start_simulation(env, node_list, node, i*2))
+    i += 1
 
 env.run(until=SIM_DURATION)
