@@ -601,37 +601,27 @@ class Node:
         if len(self.blockcache_bc) == 0:
             print("node.run_ba_star: hello")
             block = self.get_hblock()
-            block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-            state, block = self.ba_star(block_hash)
-            print("state:",
-                  state,
-                  "\nblock:",
-                  block)
-            
-            self.blockchain.append(block)
-        
-            self.round += 1
-            self.committeeBlockQueue_bc = []
+            block = make_block_from_dict(block)
+            state, block = self.ba_star(block)
 
         else:
             print("node.run_ba_star: hello")
             block1 = self.blockcache_bc[0]
             block2 = self.blockcache_bc[1]
-            block_hash1 = hashlib.sha256(str(block1).encode()).hexdigest()
-            block_hash2 = hashlib.sha256(str(block2).encode()).hexdigest()
-            state1, block1 = self.ba_star(block_hash1)
-            state2, block2 = self.ba_star(block_hash2)
-            print("state:",
-                  state1,
-                  "\nblock:",
-                  block1)
-            print("state:",
-                  state2,
-                  "\nblock:",
-                  block2)
             
-        
+            block1 = make_block_from_dict(block1)
+            block2 = make_block_from_dict(block2)
+            
+            state1, block1 = self.ba_star(block1, block2)
+
+        print("state:",
+              state,
+              "\nblock:",
+              block)
+
+        self.blockchain.append(block)
         self.round += 1
+        self.committeeBlockQueue_bc = []
 
     @property
     def last_block(self):
@@ -678,24 +668,4 @@ class Node:
         }
 
         return msg
-
-    def run_ba_star(self):
-        """BA_Star driver."""
-        print("node.run_ba_star: hello")
-        block = make_block_from_dict(self.get_hblock())
-        print("Node", self.node_id, "hpriorityblock:", block)
-        state, block = yield self.env.process(self.ba_star(block))
-        print("Node", self.node_id, "consensused_block:", block)
-        
-        # print(self.ba_star(block_hash))
-        print("state:",
-              state,
-              "\nblock:",
-              block)
-        
-        #TODO: remove this and find some way to add actual blocks
-        self.blockchain.append(block)
-        
-        self.round += 1
-
 

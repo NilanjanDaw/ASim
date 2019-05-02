@@ -409,10 +409,7 @@ class Node:
         #                        msg["payload"]["stake"],
         #                        self.total_stake)
         subusers = msg["payload"]["j"]
-<<<<<<< HEAD
         
-=======
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084
         if not subusers:
             print("node.process_message: no sub users")
             return default_reply
@@ -583,10 +580,6 @@ class Node:
             return minblock
 
         return self.empty_block
-<<<<<<< HEAD
-=======
-    
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084
 
     @property
     def last_block(self):
@@ -653,8 +646,3 @@ class Node:
         
         self.round += 1
         self.committeeBlockQueue_bc = []
-<<<<<<< HEAD
-=======
-
-
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084
