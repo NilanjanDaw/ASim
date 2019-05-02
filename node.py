@@ -10,7 +10,7 @@ import math
 
 # Constants
 # Expected committee size
-TAU = 20
+TAU = 5
 
 # Majority fraction of votes for BA*, T_FRACTION > 2/3(0.666....)
 T_FRACTION = 68/100
@@ -23,7 +23,7 @@ LAMBDA_PROPOSER = 3000
 LAMBDA_BLOCK = 30000
 
 # Maximum number of steps for BinaryBA*
-MAX_STEPS = 15
+MAX_STEPS = 10
 
 # Genesis String
 genesis_string = "We are building the best Algorand Discrete Event Simulator"

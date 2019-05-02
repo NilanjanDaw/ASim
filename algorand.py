@@ -4,8 +4,8 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 
-SIM_DURATION = 300000
-NODE_COUNT =  10
+SIM_DURATION = 1200000
+NODE_COUNT =  256
 
 node_list = []
 
@@ -124,7 +124,7 @@ total_stake = 0
 
 for node_id in range(NODE_COUNT):
     node = Node(node_id, env, statistical_delay, bc_pipe, bc_pipe_c, statistical_delay)
-    node.populateNeighbourList(NODE_COUNT, 4, 8)
+    node.populateNeighbourList(NODE_COUNT, 2, 4)
     total_stake += node.stake
     env.process(node.receiveBlock())
     env.process(node.message_consumer(bc_pipe.get_output_conn()))
