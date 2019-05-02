@@ -1,6 +1,6 @@
 import ecdsa
 import network
-from random import randint
+from random import randint, shuffle
 from helper import *
 import hashlib
 import math
@@ -63,10 +63,11 @@ class Node:
     def populateNeighbourList(self, node_count, neighbour_min, neighbour_max):
 
         neighbour_count = randint(neighbour_min, neighbour_max)
-        for x in range(neighbour_count):
-            self.neighbourList.append(randint(0, node_count - 1))
-        
-        print("Node {} neighbour list".format(self.node_id), self.neighbourList)
+        x = [i for i in range(node_count)]
+        shuffle(x)
+        self.neighbourList = x[:neighbour_count]
+        print("Node {} neighbour list".format(self.node_id),
+              self.neighbourList)
 
 
     def signPayload(self, payload):
