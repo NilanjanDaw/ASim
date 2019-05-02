@@ -1,6 +1,6 @@
 import ecdsa
 import network
-from random import randint
+from random import randint, shuffle
 from helper import *
 import hashlib
 import math
@@ -62,10 +62,11 @@ class Node:
     def populateNeighbourList(self, node_count, neighbour_min, neighbour_max):
 
         neighbour_count = randint(neighbour_min, neighbour_max)
-        for x in range(neighbour_count):
-            self.neighbourList.append(randint(0, node_count - 1))
-        
-        print("Node {} neighbour list".format(self.node_id), self.neighbourList)
+        x = [i for i in range(node_count)]
+        shuffle(x)
+        self.neighbourList = x[:neighbour_count]
+        print("Node {} neighbour list".format(self.node_id),
+              self.neighbourList)
 
 
     def signPayload(self, payload):
@@ -645,7 +646,6 @@ class Node:
 
         return msg
 
-<<<<<<< HEAD
     def run_ba_star(self):
         """BA_Star driver."""
         print("node.run_ba_star: hello")
@@ -661,27 +661,4 @@ class Node:
         self.blockchain.append(self.empty_block)
         
         self.round += 1
-=======
-    # def run_ba_star(self):
-    #     """BA_Star driver."""
-    #     print("node.run_ba_star: hello")
-    #     block = self.get_hblock()
-    #     block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-    #     state, block = self.ba_star(block_hash)
-    #     print("state:",
-    #           state,
-    #           "\nblock:",
-    #           block)
-        
-    #     #TODO: remove this and find some way to add actual blocks
-    #     # if block == self.empty_block_hash:
-    #     #     print("node.run_ba_star: i agree empty block")
-    #     #     self.blockchain.append(self.empty_block)
-    #     # else:
-    #     #     print("node.run_ba_star: i agreed on a non empty block")
-    #     #     yield self.env.timeout(10**100)
-        
-    #     # self.round += 1
-
->>>>>>> fd9761c9f296346f27b5286b33bf805bb1785649
 
