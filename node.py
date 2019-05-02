@@ -96,7 +96,7 @@ class Node:
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
+            # print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
             return gossip_message
         else:
             print("Node not selected for this round")
@@ -171,7 +171,7 @@ class Node:
                 # 1. validate
                 if block not in self.blockcache:
                     self.blockcache.append(block)
-                    print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
+                    # print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
                     self.sendBlock(self.node_list, block)
 
     def generateGossipMessage(self, vrf_hash, subuser_index, priority):
@@ -211,7 +211,7 @@ class Node:
             else:
                 print("blockcache empty")
         else:
-            print("Node {} is not a proposer for this round".format(self.node_id))
+            print("Node {} is not a proposer for round: {}".format(self.node_id, self.round))
         
         self.blockcache = []
         return False
