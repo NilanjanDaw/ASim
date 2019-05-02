@@ -648,8 +648,10 @@ class Node:
         """BA_Star driver."""
         print("node.run_ba_star: hello")
         block = make_block_from_dict(self.get_hblock())
-        print("Node", self.node_id, "hpriorityblock", block)
+        print("Node", self.node_id, "hpriorityblock:", block)
         state, block = yield self.env.process(self.ba_star(block))
+        print("Node", self.node_id, "consensused_block:", block)
+        
         # print(self.ba_star(block_hash))
         print("state:",
               state,
@@ -657,7 +659,7 @@ class Node:
               block)
         
         #TODO: remove this and find some way to add actual blocks
-        self.blockchain.append(self.empty_block)
+        self.blockchain.append(block)
         
         self.round += 1
 
