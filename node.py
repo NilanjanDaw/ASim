@@ -10,10 +10,12 @@ import math
 
 # Constants
 # Expected committee size
-TAU = 5
+TAU_PROPOSER = 5
+TAU_STEP = 32
+
 
 # Majority fraction of votes for BA*, T_FRACTION > 2/3(0.666....)
-T_FRACTION = 68/100
+T_FRACTION = 20/100
 
 # (milliseconds), Wait for this time to listen to priorities broadcast
 LAMBDA_PROPOSER = 3000
@@ -92,7 +94,7 @@ class Node:
     
     def priorityProposal(self, step):
         seed = vrf_seed(self.last_block_hash, self.round, step)
-        j, vrf_hash = sortition(self.private_key, seed, TAU,
+        j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
@@ -189,7 +191,7 @@ class Node:
     #        consensus.
     def generateEmptyBlock(self, hash_prev_block, round, step, vrf_hash):
         seed = vrf_seed(hash_prev_block, self.round, step)
-        j, vrf_hash = sortition(self.private_key, seed, TAU,
+        j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
         # change it to json format
         message = {
@@ -221,7 +223,7 @@ class Node:
         seed = hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest() + str(self.round) + "1"
         value = prg(seed)
         # seed = vrf_seed(self.last_block_hash, self.round, step)
-        j, vrf_hash = sortition(self.private_key, value, TAU,
+        j, vrf_hash = sortition(self.private_key, value, TAU_PROPOSER,
                                 self.stake, self.total_stake)
         # do cryptographic sortition , use tau_step
         # return True/False based on selection
@@ -243,7 +245,7 @@ class Node:
 
         # TODO: Get highest priority block
 
-        self.committee_vote("reduction_1", TAU, hblock)
+        self.committee_vote("reduction_1", TAU_STEP, hblock)
 
         # TODO: Search tag "where_timeout".
         #       Possible timeout needed, my doubt is where is it needed. This
@@ -251,19 +253,19 @@ class Node:
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
         
-        hblock_1 = yield self.env.process(self.count_votes("reduction_1", T_FRACTION, TAU,
+        hblock_1 = yield self.env.process(self.count_votes("reduction_1", T_FRACTION, TAU_STEP,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER))
 
         # FIXME: Why empty block require step & vrf_hash??
         empty_block  = self.empty_block
         if not hblock_1:
-            self.committee_vote("reduction_2", TAU, empty_block )
+            self.committee_vote("reduction_2", TAU_STEP, empty_block )
         else:
-            self.committee_vote("reduction_2", TAU, hblock_1)
+            self.committee_vote("reduction_2", TAU_STEP, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
 
-        hblock_2 = yield self.env.process(self.count_votes("reduction_2", T_FRACTION, TAU,
+        hblock_2 = yield self.env.process(self.count_votes("reduction_2", T_FRACTION, TAU_STEP,
                                     LAMBDA_BLOCK + LAMBDA_PROPOSER))
 
         if not hblock_2:
@@ -285,7 +287,7 @@ class Node:
         round -- round number
         """
         seed = vrf_seed(self.last_block_hash, self.round, step)
-        j, vrf_hash = sortition(self.private_key, seed, TAU,
+        j, vrf_hash = sortition(self.private_key, seed, TAU_STEP,
                                 self.stake, self.total_stake)
 
         if j > 0:
@@ -347,7 +349,7 @@ class Node:
                 print("count_votes: message skipped due to different rounds")
                 continue
 
-            votes, block, sorthash = self.process_message(step, TAU, msg)
+            votes, block, sorthash = self.process_message(step, TAU_STEP, msg)
             block_hash = hash_a_block(block)
             blockcache[block_hash] = block
             # check if voter already voted or zero votes(invalid message)
@@ -401,7 +403,7 @@ class Node:
         subusers = verify_sort(msg["public_key"],
                                msg["payload"]["vrf_hash"],
                                seed,
-                               TAU,
+                               TAU_STEP,
                                msg["payload"]["stake"],
                                self.total_stake)
         
@@ -440,9 +442,9 @@ class Node:
         empty_block = self.empty_block
         
         while step < MAX_STEPS:
-            self.committee_vote(str(step), TAU, r)
+            self.committee_vote(str(step), TAU_STEP, r)
 
-            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU_STEP,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
@@ -450,34 +452,34 @@ class Node:
             elif r != empty_block :
                 # TODO: Comfirm understanding.
                 for i in range(step+1, step+4):
-                    self.committee_vote(str(i), TAU, r)
+                    self.committee_vote(str(i), TAU_STEP, r)
                 
                 # TODO: Discuss Value of i = 3 or 1
                 # TODO: Discuss why TAU_final different
                 if step == 3:
-                    self.committee_vote("final", TAU, r)
+                    self.committee_vote("final", TAU_STEP, r)
                 return r
             
             step += 1
 
-            self.committee_vote(str(step), TAU, r)
+            self.committee_vote(str(step), TAU_STEP, r)
 
-            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU_STEP,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
                 r = empty_block
             elif r == empty_block:
                 for i in range(step+1, step+4):
-                    self.committee_vote(str(i), TAU, r)
+                    self.committee_vote(str(i), TAU_STEP, r)
                 
                 return r
             
             step += 1
             
-            self.committee_vote(str(step), TAU, r)
+            self.committee_vote(str(step), TAU_STEP, r)
 
-            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU_STEP,
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
@@ -517,7 +519,7 @@ class Node:
         self.committeeBlockQueue_bc = []
 
         for msg in messages:
-            votes, value, sorthash = self.process_message(step, TAU, msg)
+            votes, value, sorthash = self.process_message(step, TAU_STEP, msg)
             for i in range(1, votes):
                 hash_subuser = str(sorthash["vrf_hash"]) + str(i)
                 h = hashlib.sha256(hash_subuser.encode()).hexdigest()
@@ -541,7 +543,7 @@ class Node:
         hblock = yield self.env.process(self.reduction(block))
         hblock_star = yield self.env.process(self.binary_ba_star(hblock))
 
-        r = yield self.env.process(self.count_votes("final", T_FRACTION, TAU,
+        r = yield self.env.process(self.count_votes("final", T_FRACTION, TAU_STEP,
                              LAMBDA_BLOCK + LAMBDA_PROPOSER))
         
         if hblock_star == r:

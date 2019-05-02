@@ -4,8 +4,8 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 
-SIM_DURATION = 1200000
-NODE_COUNT =  256
+SIM_DURATION = 12800000
+NODE_COUNT =  10
 
 node_list = []
 
@@ -119,6 +119,8 @@ def start_simulation(env, node_list, node):
               node.blockchain)
 
         loop_counter += 1
+        if len(node.blockchain) > 64:
+            break
 
 total_stake = 0
 
@@ -138,5 +140,5 @@ for node in node_list:
 for node in node_list:
     env.process(start_simulation(env, node_list, node))
 
-env.run(until=SIM_DURATION)
+env.run(until=simpy.core.Infinity)
 
