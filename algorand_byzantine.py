@@ -152,8 +152,8 @@ for node in node_list:
     if node.node_id in l:
       node.a_list = a_list
       node.is_adversary = True
-      env.process(node.message_consumer(bc_pipe.get_output_conn()))
-      env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
+      env.process(node.message_consumer(bc_pipe_c.get_output_conn()))
+      env.process(node.message_consumer_c())
 
 
 for node in node_list:
