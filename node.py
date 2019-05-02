@@ -105,9 +105,9 @@ class Node:
         priority = min (block["priority"] for block in self.blockcache)
         message = {
             "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
-            "rand_str_256": prg(13), 
-            # check if it is correct
-            "priority_payload": priority,
+            "payload": prg(13),
+            "round": self.round,
+            "priority": priority,
 
         }
         self.message_generator(self.broadcastpipe, message)
@@ -239,23 +239,23 @@ class Node:
         #       counting for votes. Should timeout here or inside count_vote
         #       function. Add timeout of lamda_block + lamda_step
         
-        hblock_1 = self.count_votes("reduction_1", T_FRACTION, TAU,
-                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+        hblock_1 = yield self.env.process(self.count_votes("reduction_1", T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER))
 
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block_hash  = self.empty_block_hash
+        empty_block  = self.empty_block
         if not hblock_1:
-            self.committee_vote("reduction_2", TAU, empty_block_hash )
+            self.committee_vote("reduction_2", TAU, empty_block )
         else:
             self.committee_vote("reduction_2", TAU, hblock_1)
 
         # TODO: Same issue as search tag "where_timeout"
 
-        hblock_2 = self.count_votes("reduction_2", T_FRACTION, TAU,
-                                    LAMBDA_BLOCK + LAMBDA_PROPOSER)
+        hblock_2 = yield self.env.process(self.count_votes("reduction_2", T_FRACTION, TAU,
+                                    LAMBDA_BLOCK + LAMBDA_PROPOSER))
 
         if not hblock_2:
-            return empty_block_hash 
+            return empty_block 
 
         return hblock_2
 
@@ -283,7 +283,7 @@ class Node:
                         "vrf_hash": vrf_hash,
                         "j": j,
                         "prev_block_hash": self.last_block_hash,
-                        "prop_block_hash": hblock,
+                        "block": hblock,
                         "stake": self.stake
                       }
             
@@ -318,10 +318,10 @@ class Node:
         ctx   -- Blockchain, state of ledger
         round -- round number
         """
-        dummy = yield self.env.process(self.dummy_timeout(self.env, wait_time))
+        yield self.env.timeout(wait_time)
         count = {}  # count votes Dictionary[Block, votes]
         voters = set()  # set of voters Set[public key]
-
+        blockcache = {}
         messages = self.committeeBlockQueue_bc
         self.committeeBlockQueue_bc = []
 
@@ -336,7 +336,8 @@ class Node:
                 continue
 
             votes, block, sorthash = self.process_message(step, TAU, msg)
-
+            block_hash = hash_a_block(block)
+            blockcache[block_hash] = block
             # check if voter already voted or zero votes(invalid message)
             if (votes == 0) or (sorthash["user_pk"] in voters):
                 print("node.count_votes: default reply or zero votes")
@@ -344,13 +345,13 @@ class Node:
 
             voters.add(sorthash["user_pk"])
 
-            if block in count:
-                count[block] += votes
+            if block_hash in count:
+                count[block_hash] += votes
             else:
-                count[block] = votes
+                count[block_hash] = votes
 
-            if count[block] > majority_frac * tau:
-                return block
+            if count[block_hash] > majority_frac * tau:
+                return blockcache[block_hash]
         
         print("count_votes: no block selected")
         return None
@@ -398,7 +399,7 @@ class Node:
 
         # TODO: Fix accorinding to message attributes
         votes = subusers  # j from sortition function
-        block = msg["payload"]["prop_block_hash"]     # block
+        block = msg["payload"]["block"]     # block
         
         sorthash = {}       # sortition details
         sorthash["user_pk"] = msg["public_key"]
@@ -424,17 +425,17 @@ class Node:
         step = 3
         r = block
         # FIXME: Why empty block require step & vrf_hash??
-        empty_block_hash = self.empty_block_hash
+        empty_block = self.empty_block
         
         while step < MAX_STEPS:
             self.committee_vote(str(step), TAU, r)
 
-            r = self.count_votes(str(step), T_FRACTION, TAU,
-                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
                 r = block
-            elif r != empty_block_hash :
+            elif r != empty_block :
                 # TODO: Comfirm understanding.
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
@@ -449,12 +450,12 @@ class Node:
 
             self.committee_vote(str(step), TAU, r)
 
-            r = self.count_votes(str(step), T_FRACTION, TAU,
-                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
-                r = empty_block_hash
-            elif r == empty_block_hash:
+                r = empty_block
+            elif r == empty_block:
                 for i in range(step+1, step+4):
                     self.committee_vote(str(i), TAU, r)
                 
@@ -464,14 +465,14 @@ class Node:
             
             self.committee_vote(str(step), TAU, r)
 
-            r = self.count_votes(str(step), T_FRACTION, TAU,
-                                 LAMBDA_BLOCK + LAMBDA_PROPOSER)
+            r = yield self.env.process(self.count_votes(str(step), T_FRACTION, TAU,
+                                 LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
                 if self.common_coin(str(step), TAU) == 0:
                     r = block
                 else:
-                    r = empty_block_hash
+                    r = empty_block
 
             step += 1
         
@@ -525,18 +526,18 @@ class Node:
         round -- round number
         """
 
-        hblock = self.reduction(block)
-        hblock_star = self.binary_ba_star(hblock)
+        hblock = yield self.env.process(self.reduction(block))
+        hblock_star = yield self.env.process(self.binary_ba_star(hblock))
 
-        r = self.count_votes("final", T_FRACTION, TAU,
-                             LAMBDA_BLOCK + LAMBDA_PROPOSER)
+        r = yield self.env.process(self.count_votes("final", T_FRACTION, TAU,
+                             LAMBDA_BLOCK + LAMBDA_PROPOSER))
         
         if hblock_star == r:
             # TODO: Adjust block chain to handle tentative and final block
-            return ("final", hblock_star)
+            return "final", hblock_star
         
         else:
-            return ("tentative", hblock_star)
+            return "tentative", hblock_star
         
     def get_hblock(self, clear=True):
         """
@@ -556,11 +557,11 @@ class Node:
         if cache:
             minblock = cache[0]
             for block in cache:
-                if int(minblock["priority"], 16) < int(block["priority"], 16):
+                if int(minblock["payload"], 16) < int(block["payload"], 16):
                     minblock = block
 
             return minblock
-        return None
+        return self.empty_block
     
     @property
     def last_block(self):
@@ -611,22 +612,16 @@ class Node:
     def run_ba_star(self):
         """BA_Star driver."""
         print("node.run_ba_star: hello")
-        block = self.get_hblock()
-        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-        state, block = self.ba_star(block_hash)
+        block = make_block_from_dict(self.get_hblock())
+        state, block = yield self.env.process(self.ba_star(block))
+        # print(self.ba_star(block_hash))
         print("state:",
               state,
               "\nblock:",
               block)
         
         #TODO: remove this and find some way to add actual blocks
-        # if block == self.empty_block_hash:
-        #     print("node.run_ba_star: i agree empty block")
-        #     self.blockchain.append(self.empty_block)
-        # else:
-        #     print("node.run_ba_star: i agreed on a non empty block")
-        #     yield self.env.timeout(10**100)
+        self.blockchain.append(self.empty_block)
         
-        # self.round += 1
-
+        self.round += 1
 

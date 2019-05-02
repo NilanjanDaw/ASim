@@ -78,6 +78,25 @@ def validate_signature(public_key, message, signature):
     return public_key.verify(bytes.fromhex(signature), message.encode())
 
 
+def hash_a_block(block):
+    block = make_block_from_dict(block)
+    return hashlib.sha256(str(block).encode()).hexdigest()
+
+
+def make_block_from_dict(msg):
+    if (("hash_prev_block" in msg) and
+       ("payload" in msg) and
+       ("round" in msg)):
+        block = {
+                    "hash_prev_block": msg["hash_prev_block"],
+                    "payload": msg["payload"],
+                    "round": msg["round"]
+                }
+        return block
+
+    raise KeyError("All block components not found")
+
+
 # seed = "lol"
 
 # private_key = ecdsa.SigningKey.generate()

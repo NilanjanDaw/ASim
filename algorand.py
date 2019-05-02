@@ -3,7 +3,7 @@ import simpy
 import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
-SIM_DURATION = 25000
+SIM_DURATION = 1200000
 NODE_COUNT = 10
 node_list = []
 
@@ -22,7 +22,7 @@ def start_simulation(env, node_list, node):
     print("Node:", node.node_id, "started.......")
     yield env.timeout(0)
     loop_counter = 0
-#     print(node.validatePayload(node.blockchain[0]))
+    # print(node.validatePayload(node.blockchain[0]))
     while True:
         block = node.priorityProposal(1)
         if block is not None:
@@ -87,8 +87,7 @@ def start_simulation(env, node_list, node):
               ":",
               node.get_hblock(clear=False))
         
-        
-        node.run_ba_star()
+        yield env.process(node.run_ba_star())
         # self.blockchain = []
         # self.blockcache = []
         # self.blockcache_bc = []
