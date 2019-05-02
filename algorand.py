@@ -5,7 +5,7 @@ from node import Node
 from BroadcastMsg import BroadcastPipe
 
 SIM_DURATION = 300000
-NODE_COUNT = 20
+NODE_COUNT =  10
 
 node_list = []
 
@@ -17,47 +17,8 @@ statistical_delay = 200 #max(0, np.random.normal(mu, signa, 1)[0])
 bc_pipe = BroadcastPipe(env)
 bc_pipe_c = BroadcastPipe(env)
 
-def printLog(node, loop_counter):
+def printLog(node, loop_counter, env):
   
-   # print("blockchain:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       len(node.blockchain),
-        #       ":",
-        #       node.blockchain)
-    print("blockcache:",
-          node.node_id,
-          ":",
-          loop_counter,
-          ":",
-          len(node.blockcache),
-          ":",
-          node.blockcache)
-        # print("blockcache_bc:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       len(node.blockcache_bc),
-        #       ":",
-        #       node.blockcache_bc)
-        # print("committeeBlockQueue_bc:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       len(node.committeeBlockQueue_bc),
-        #       ":",
-        #       node.committeeBlockQueue_bc)
-        
-        # print("highestpriority:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       node.get_hblock(clear=False))
 
         # print(env.now,
         #       ":",
@@ -79,16 +40,16 @@ def printLog(node, loop_counter):
         #       len(node.blockcache),
         #       ":",
         #       node.blockcache)
-        # print(env.now,
-        #       ":",
-        #       "blockcache_bc:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       len(node.blockcache_bc),
-        #       ":",
-        #       node.blockcache_bc)
+        print(env.now,
+              ":",
+              "blockcache_bc:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockcache_bc),
+              ":",
+              node.blockcache_bc)
         # print(env.now,
         #       ":",
         #       "committeeBlockQueue_bc:",
@@ -127,11 +88,13 @@ def start_simulation(env, node_list, node):
         # yield env.timeout(200)
         yield env.timeout(3000)
 
-        printLog(node, loop_counter)
         # print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
         if node.checkLeader():
             node.blockProposal()   
 
+        yield env.timeout(3000)
+        printLog(node, loop_counter, env)
+        
         break 
         # yield env.process(node.run_ba_star())
 

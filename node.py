@@ -100,7 +100,7 @@ class Node:
             # print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
             return gossip_message
         else:
-            print("Node not selected for this round")
+            print("Node {} not selected for this round".format(self.node_id))
             return None
 
     def blockProposal(self):
