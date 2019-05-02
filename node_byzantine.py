@@ -248,7 +248,7 @@ class Node:
             return True
         return False 
 
-    def reduction(self, hblock):
+    def reduction(self, hblock, hblock2):
         """
         Performs Reduction.
 
@@ -263,6 +263,9 @@ class Node:
         # TODO: Get highest priority block
 
         self.committee_vote("reduction_1", TAU_STEP, hblock)
+
+        if hblock2:
+            self.committee_vote("reduction_1", TAU_STEP, hblock2)
 
         # TODO: Search tag "where_timeout".
         #       Possible timeout needed, my doubt is where is it needed. This
@@ -546,7 +549,7 @@ class Node:
         
         return minhash % 2
 
-    def ba_star(self, block):
+    def ba_star(self, block, block2=None):
         """
         Agreement protocol. Base function
 
@@ -557,7 +560,7 @@ class Node:
         round -- round number
         """
 
-        hblock = yield self.env.process(self.reduction(block))
+        hblock = yield self.env.process(self.reduction(block, block2))
         hblock_star = yield self.env.process(self.binary_ba_star(hblock))
 
         r = yield self.env.process(self.count_votes("final", T_FRACTION, TAU_STEP,
@@ -598,14 +601,13 @@ class Node:
     
     def run_ba_star(self):
         """BA_Star driver."""
+        print("node.run_ba_star: hello")
         if len(self.blockcache_bc) == 0:
-            print("node.run_ba_star: hello")
             block = self.get_hblock()
             block = make_block_from_dict(block)
             state, block = self.ba_star(block)
 
         else:
-            print("node.run_ba_star: hello")
             block1 = self.blockcache_bc[0]
             block2 = self.blockcache_bc[1]
             
