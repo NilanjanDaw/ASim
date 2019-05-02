@@ -11,7 +11,7 @@ NODE_COUNT =  30
 node_list = []
 
 fail_stop = True
-f = 0 # fraction of nodes controlled by adversary
+f = 0.25 # fraction of nodes controlled by adversary
 f_adversary_list = []
 env = simpy.Environment()
 mu = 200
@@ -78,7 +78,7 @@ def printLog(node, loop_counter, env):
 def start_simulation(env, node_list, node):
     # TODO: Check this time out
     # This was a fix for improper starting of this function
-    print("Node:", node.node_id, "started.......")
+    # print("Node:", node.node_id, "started.......")
     yield env.timeout(0)
     loop_counter = 0
     # print(node.validatePayload(node.blockchain[0]))
@@ -106,29 +106,29 @@ def start_simulation(env, node_list, node):
             break
           continue  
         
-        print(env.now,
-              ":",
-              "blockcache_bc:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockcache_bc),
-              ":",
-              node.blockcache_bc)
+        # print(env.now,
+        #       ":",
+        #       "blockcache_bc:",
+        #       node.node_id,
+        #       ":",
+        #       loop_counter,
+        #       ":",
+        #       len(node.blockcache_bc),
+        #       ":",
+        #       node.blockcache_bc)
         
         yield env.process(node.run_ba_star())
 
-        print(env.now,
-              ":",
-              "blockchain:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockchain),
-              ":",
-              node.blockchain)
+        # print(env.now,
+        #       ":",
+        #       "blockchain:",
+        #       node.node_id,
+        #       ":",
+        #       loop_counter,
+        #       ":",
+        #       len(node.blockchain),
+        #       ":",
+        #       node.blockchain)
 
         
         # node.round += 1
@@ -136,7 +136,7 @@ def start_simulation(env, node_list, node):
         #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
-        if len(node.blockchain) > 0:
+        if len(node.blockchain) > 63:
             break
 
 total_stake = 0
@@ -153,7 +153,7 @@ for node_id in range(NODE_COUNT):
 l = list(range(NODE_COUNT))
 shuffle(l)
 l = l[0:int(f*len(l))]
-print("Number of nodes controlled by adversary:",len(l))
+print("List of adversary nodes:", l)
 
 for node in node_list:
     node.total_stake = total_stake
