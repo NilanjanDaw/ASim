@@ -56,8 +56,8 @@ def sortition(private_key, seed, tau, stake, total_stake):
 
 def verify_sort(public_key, vrf_hash, seed, tau, stake, total_stake):
 
-    if not verify_vrf(public_key, vrf_hash, seed):
-        return 0
+    # if not verify_vrf(public_key, vrf_hash, seed):
+    #     return 0
 
     p = tau / total_stake
     j = 0

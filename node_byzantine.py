@@ -1,5 +1,5 @@
 import ecdsa
-import network
+import network_byzantine as network
 from random import randint, shuffle
 from helper import *
 import hashlib
@@ -50,7 +50,9 @@ class Node:
         self.env = env
         self.node_list = []
         self.delay = statistical_delay
-        self.is_fail_stop_adversary = False
+        self.a_list = []
+        self.is_adversary = False
+        self.gossiped_during_proposal = None
         self.generateCryptoKeys()
         genesis_block = {"prev_hash": 0, "payload": genesis_string}
         self.blockchain.append(genesis_block)
@@ -110,23 +112,30 @@ class Node:
         print("block proposal started")
         # "<SHA256(Previous block)||256 bit long random string || Node’s Priority payload>"
         priority = self.gossip_block["priority"]
-        message = {
+        B1 = {
             "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
             "payload": prg(13),
             "round": self.round,
             "priority": priority,
 
         }
-        self.message_generator(self.broadcastpipe, message)
+        B2 = {
+            "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
+            "payload": prg(131), # conflicting 
+            "round": self.round,
+            "priority": priority,
+
+        }
+        if node.is_adversary:
+            self.message_generator(self.broadcastpipe, B1)
+            self.message_generator(self.broadcastpipe, B2)
+        else:
+            self.sendBlock(self.node_list, B1)
         print("block proposal done")
     
     def message_generator(self, out_pipe, message):
-        # This is the transmission delay but set it according to message length
-        # yield env.timeout(random.randint(6, 10))
-        # time = int(len(str(message))/32) # 16 char per sec transmission speed
-        # print("time calculated using bandwidth:",time,message,len(str(message)))
-        # yield env.timeout(time)
-        self.env.timeout(self.delay)
+        # wait for small latency before next transmission
+        self.env.timeout(1)
         out_pipe.put(message)
 
 
@@ -135,6 +144,10 @@ class Node:
             msg = yield in_pipe.get()
             # print("msg receive--------------------------------")
             self.blockcache_bc.append(msg)
+            if len(self.blockcache_bc) == 2:
+                i = random.randint(0,1)
+                self.gossiped_during_proposal = self.blockcache_bc[i]
+                self.sendBlock(self.node_list,self.blockcache_bc[i])
             # print('received message: %s.' %(msg))
 
     def message_generator_c(self, out_pipe, message):
@@ -172,11 +185,14 @@ class Node:
             block = yield self.cable.get()
             if block is not None:
                 # print("{} received block {}".format(self.node_id, block))
-                # 1. validate
-                if block not in self.blockcache:
-                    self.blockcache.append(block)
-                    # print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
-                    self.sendBlock(self.node_list, block)
+                if len(self.blockcache_bc) == 0: # Honest node is proposer
+                    if block not in self.blockcache:
+                        self.blockcache.append(block)
+                        # print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
+                        self.sendBlock(self.node_list, block)
+        
+
+
 
     def generateGossipMessage(self, vrf_hash, subuser_index, priority):
         message = {
@@ -302,8 +318,7 @@ class Node:
                         "stake": self.stake
                       }
             
-            # signature = self.signPayload(str(payload)).hex()
-            signature = random.getrandbits(1000)
+            signature = self.signPayload(str(payload)).hex()
 
             message = {
                         "public_key": self.public_key,
@@ -390,11 +405,11 @@ class Node:
         default_reply = 0, None, None  # reply in case of errors
         msg = hblock_gossip_msg  # rename for comfort
 
-        # if not validate_signature(msg["public_key"],
-        #                           str(msg["payload"]),
-        #                           msg["signature"]):
-        #     print("node.process_message: signature verify failed")
-        #     return default_reply
+        if not validate_signature(msg["public_key"],
+                                  str(msg["payload"]),
+                                  msg["signature"]):
+            print("node.process_message: signature verify failed")
+            return default_reply
 
         if msg["payload"]["prev_block_hash"] != self.last_block_hash:
             print("node.process_message: last block hash not match")
@@ -402,17 +417,13 @@ class Node:
 
         # TODO: implement verify sortition function
         seed = vrf_seed(self.last_block_hash, self.round, step)
-        # subusers = verify_sort(msg["public_key"],
-        #                        msg["payload"]["vrf_hash"],
-        #                        seed,
-        #                        TAU_STEP,
-        #                        msg["payload"]["stake"],
-        #                        self.total_stake)
-        subusers = msg["payload"]["j"]
-<<<<<<< HEAD
+        subusers = verify_sort(msg["public_key"],
+                               msg["payload"]["vrf_hash"],
+                               seed,
+                               TAU_STEP,
+                               msg["payload"]["stake"],
+                               self.total_stake)
         
-=======
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084
         if not subusers:
             print("node.process_message: no sub users")
             return default_reply
@@ -583,10 +594,44 @@ class Node:
             return minblock
 
         return self.empty_block
-<<<<<<< HEAD
-=======
     
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084
+    
+    def run_ba_star(self):
+        """BA_Star driver."""
+        if len(self.blockcache_bc) == 0:
+            print("node.run_ba_star: hello")
+            block = self.get_hblock()
+            block_hash = hashlib.sha256(str(block).encode()).hexdigest()
+            state, block = self.ba_star(block_hash)
+            print("state:",
+                  state,
+                  "\nblock:",
+                  block)
+            
+            self.blockchain.append(block)
+        
+            self.round += 1
+            self.committeeBlockQueue_bc = []
+
+        else:
+            print("node.run_ba_star: hello")
+            block1 = self.blockcache_bc[0]
+            block2 = self.blockcache_bc[1]
+            block_hash1 = hashlib.sha256(str(block1).encode()).hexdigest()
+            block_hash2 = hashlib.sha256(str(block2).encode()).hexdigest()
+            state1, block1 = self.ba_star(block_hash1)
+            state2, block2 = self.ba_star(block_hash2)
+            print("state:",
+                  state1,
+                  "\nblock:",
+                  block1)
+            print("state:",
+                  state2,
+                  "\nblock:",
+                  block2)
+            
+        
+        self.round += 1
 
     @property
     def last_block(self):
@@ -652,9 +697,5 @@ class Node:
         self.blockchain.append(block)
         
         self.round += 1
-        self.committeeBlockQueue_bc = []
-<<<<<<< HEAD
-=======
 
 
->>>>>>> 09314c9d403733e1b6db767a094ad78dbe316084

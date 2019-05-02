@@ -1,18 +1,17 @@
 
 import simpy
 import numpy as np
-from node import Node
-from BroadcastMsg import BroadcastPipe
+from node_byzantine import Node
+from BroadcastMsg_byzantine import BroadcastPipe
 from random import shuffle
 
-SIM_DURATION = simpy.core.Infinity
+SIM_DURATION = 128000 #12800000
 NODE_COUNT =  10
 
 node_list = []
 
-fail_stop = True
-f = 0 # fraction of nodes controlled by adversary
-f_adversary_list = []
+a = 0.25 # fraction of nodes controlled by adversary
+a_list = []
 env = simpy.Environment()
 mu = 200
 signa = 400
@@ -93,18 +92,10 @@ def start_simulation(env, node_list, node):
 
         # print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
         if node.checkLeader():
-          if fail_stop == False or (fail_stop == True and node.is_fail_stop_adversary == False) :
             node.blockProposal()   
 
         yield env.timeout(3000)
-        if not node.blockcache_bc:
-          empty_block = node.empty_block
-          node.blockchain.append(empty_block)
-          node.round += 1
-          loop_counter += 1
-          if len(node.blockchain) > 64:
-            break
-          continue  
+        
         
         print(env.now,
               ":",
@@ -136,7 +127,7 @@ def start_simulation(env, node_list, node):
         #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
-        if len(node.blockchain) > 0:
+        if len(node.blockchain) > 64:
             break
 
 total_stake = 0
@@ -146,24 +137,27 @@ for node_id in range(NODE_COUNT):
     node.populateNeighbourList(NODE_COUNT, 2, 4)
     total_stake += node.stake
     env.process(node.receiveBlock())
-    env.process(node.message_consumer(bc_pipe.get_output_conn()))
-    env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
     node_list.append(node)
 
 l = list(range(NODE_COUNT))
 shuffle(l)
-l = l[0:int(f*len(l))]
+l = l[0:int(a*len(l))]
 print("Number of nodes controlled by adversary:",len(l))
-
+for i in l:
+  a_list.append(node_list[i])
+print("Nodes controlled by A:",a_list)
 for node in node_list:
     node.total_stake = total_stake
     node.node_list = node_list
     if node.node_id in l:
-      node.is_fail_stop_adversary = True
+      node.a_list = a_list
+      node.is_adversary = True
+      env.process(node.message_consumer(bc_pipe.get_output_conn()))
+      env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
 
 
 for node in node_list:
     env.process(start_simulation(env, node_list, node))
 
-env.run(until=SIM_DURATION)
+env.run(until=simpy.core.Infinity)
 
