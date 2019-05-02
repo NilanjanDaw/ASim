@@ -78,7 +78,7 @@ def printLog(node, loop_counter, env):
 def start_simulation(env, node_list, node):
     # TODO: Check this time out
     # This was a fix for improper starting of this function
-    print("Node:", node.node_id, "started.......")
+    # print("Node:", node.node_id, "started.......")
     yield env.timeout(0)
     loop_counter = 0
     # print(node.validatePayload(node.blockchain[0]))
@@ -106,29 +106,29 @@ def start_simulation(env, node_list, node):
             break
           continue  
         
-        print(env.now,
-              ":",
-              "blockcache_bc:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockcache_bc),
-              ":",
-              node.blockcache_bc)
+        # print(env.now,
+        #       ":",
+        #       "blockcache_bc:",
+        #       node.node_id,
+        #       ":",
+        #       loop_counter,
+        #       ":",
+        #       len(node.blockcache_bc),
+        #       ":",
+        #       node.blockcache_bc)
         
         yield env.process(node.run_ba_star())
 
-        print(env.now,
-              ":",
-              "blockchain:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockchain),
-              ":",
-              node.blockchain)
+        # print(env.now,
+        #       ":",
+        #       "blockchain:",
+        #       node.node_id,
+        #       ":",
+        #       loop_counter,
+        #       ":",
+        #       len(node.blockchain),
+        #       ":",
+        #       node.blockchain)
 
         
         # node.round += 1
@@ -136,7 +136,7 @@ def start_simulation(env, node_list, node):
         #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
-        if len(node.blockchain) > 0:
+        if len(node.blockchain) > 63:
             break
 
 total_stake = 0
