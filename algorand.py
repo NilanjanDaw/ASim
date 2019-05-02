@@ -20,16 +20,16 @@ bc_pipe_c = BroadcastPipe(env)
 def printLog(node, loop_counter, env):
   
 
-        # print(env.now,
-        #       ":",
-        #       "blockchain:",
-        #       node.node_id,
-        #       ":",
-        #       loop_counter,
-        #       ":",
-        #       len(node.blockchain),
-        #       ":",
-        #       node.blockchain)
+      print(env.now,
+            ":",
+            "blockchain:",
+            node.node_id,
+            ":",
+            loop_counter,
+            ":",
+            len(node.blockchain),
+            ":",
+            node.blockchain)
         # print(env.now,
         #       ":",
         #       "blockcache:",
@@ -40,16 +40,16 @@ def printLog(node, loop_counter, env):
         #       len(node.blockcache),
         #       ":",
         #       node.blockcache)
-        print(env.now,
-              ":",
-              "blockcache_bc:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockcache_bc),
-              ":",
-              node.blockcache_bc)
+      print(env.now,
+            ":",
+            "blockcache_bc:",
+            node.node_id,
+            ":",
+            loop_counter,
+            ":",
+            len(node.blockcache_bc),
+            ":",
+            node.blockcache_bc)
         # print(env.now,
         #       ":",
         #       "committeeBlockQueue_bc:",
@@ -93,10 +93,30 @@ def start_simulation(env, node_list, node):
             node.blockProposal()   
 
         yield env.timeout(3000)
-        printLog(node, loop_counter, env)
         
-        break 
-        # yield env.process(node.run_ba_star())
+        print(env.now,
+              ":",
+              "blockcache_bc:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockcache_bc),
+              ":",
+              node.blockcache_bc)
+        
+        yield env.process(node.run_ba_star())
+
+        print(env.now,
+              ":",
+              "blockchain:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockchain),
+              ":",
+              node.blockchain)
 
         loop_counter += 1
 

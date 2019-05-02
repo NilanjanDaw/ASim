@@ -97,7 +97,7 @@ class Node:
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            # print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
+            print("Node id : {} Block ready to be gossiped:".format(self.node_id))
             return gossip_message
         else:
             print("Node {} not selected for this round".format(self.node_id))
@@ -123,16 +123,16 @@ class Node:
         # time = int(len(str(message))/32) # 16 char per sec transmission speed
         # print("time calculated using bandwidth:",time,message,len(str(message)))
         # yield env.timeout(time)
-        yield self.env.timeout(self.delay)
+        self.env.timeout(self.delay)
         out_pipe.put(message)
 
 
     def message_consumer(self, in_pipe):
         while True:
             msg = yield in_pipe.get()
-            print("msg receive--------------------------------")
+            # print("msg receive--------------------------------")
             self.blockcache_bc.append(msg)
-            print('received message: %s.' %(msg))
+            # print('received message: %s.' %(msg))
 
     def message_generator_c(self, out_pipe, message):
         yield self.env.timeout(self.delay)
@@ -142,9 +142,9 @@ class Node:
     def message_consumer_c(self, in_pipe):
         while True:
             msg = yield in_pipe.get()
-            print("msg receive----committee----------------")
+            # print("msg receive----committee----------------")
             self.committeeBlockQueue_bc.append(msg)
-            print('received message: %s.' %(msg))
+            # print('received message: %s.' %(msg))
 
 
     def getPriority(self, vrf_hash, subuser_count):
@@ -648,6 +648,7 @@ class Node:
         """BA_Star driver."""
         print("node.run_ba_star: hello")
         block = make_block_from_dict(self.get_hblock())
+        print("Node", self.node_id, "hpriorityblock", block)
         state, block = yield self.env.process(self.ba_star(block))
         # print(self.ba_star(block_hash))
         print("state:",

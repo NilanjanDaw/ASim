@@ -22,7 +22,7 @@ def sender(env, cable):
     while True:
         # wait for next transmission
         # TODO: Check if this timeout is required
-        yield env.timeout(5000)
+        # yield env.timeout(5000)
         cable.put('Sender sent this at %d' % env.now)
 
 
