@@ -15,7 +15,8 @@ TAU_STEP = 32
 
 
 # Majority fraction of votes for BA*, T_FRACTION > 2/3(0.666....)
-T_FRACTION = 20/100
+T_FRACTION = 20/100+        if hblock2:
++            self.committee_vote("reduction_1", TAU_STEP, hblock2)
 
 # (milliseconds), Wait for this time to listen to priorities broadcast
 LAMBDA_PROPOSER = 3000
@@ -272,7 +273,7 @@ class Node:
             return True
         return False 
 
-    def reduction(self, hblock):
+    def reduction(self, hblock, hblock2):
         """
         Performs Reduction.
 
@@ -287,6 +288,9 @@ class Node:
         # TODO: Get highest priority block
 
         self.committee_vote("reduction_1", TAU_STEP, hblock)
+
+        if hblock2:
+            self.committee_vote("reduction_1", TAU_STEP, hblock2)
 
         # TODO: Search tag "where_timeout".
         #       Possible timeout needed, my doubt is where is it needed. This
@@ -570,7 +574,7 @@ class Node:
         
         return minhash % 2
 
-    def ba_star(self, block):
+    def ba_star(self, block, block2=None):
         """
         Agreement protocol. Base function
 
@@ -581,7 +585,7 @@ class Node:
         round -- round number
         """
 
-        hblock = yield self.env.process(self.reduction(block))
+        hblock = yield self.env.process(self.reduction(block, block2))
         hblock_star = yield self.env.process(self.binary_ba_star(hblock))
 
         r = yield self.env.process(self.count_votes("final", T_FRACTION, TAU_STEP,
@@ -605,9 +609,9 @@ class Node:
         Hidden Arguments:
         blockcache -- Blockchain, state of ledger
         """
-        cache = self.blockcache_bc
+        cache = self.blockcache
         if clear:
-            self.blockcache_bc = []
+            self.blockcache = []
         
         if cache:
             minblock = cache[0]
@@ -622,41 +626,32 @@ class Node:
     
     def run_ba_star(self):
         """BA_Star driver."""
+        print("node.run_ba_star: hello")
+        # Honest Working
         if len(self.blockcache_bc) == 0:
-            print("node.run_ba_star: hello")
             block = self.get_hblock()
-            block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-            state, block = self.ba_star(block_hash)
-            print("state:",
-                  state,
-                  "\nblock:",
-                  block)
-            
-            self.blockchain.append(block)
-        
-            self.round += 1
-            self.committeeBlockQueue_bc = []
 
+            block = make_block_from_dict(block)
+            state, block = self.ba_star(block)
+
+        # Byzantine behaves improperly (when Byz was selected as block proposer)
         else:
-            print("node.run_ba_star: hello")
             block1 = self.blockcache_bc[0]
             block2 = self.blockcache_bc[1]
-            block1 = make_block_from_dict(block_hash1)
-            block2 = make_block_from_dict(block_hash2)
-
-            state1, block1 = self.ba_star(block_hash1)
-            state2, block2 = self.ba_star(block_hash2)
-            print("state:",
-                  state1,
-                  "\nblock:",
-                  block1)
-            print("state:",
-                  state2,
-                  "\nblock:",
-                  block2)
             
-        
+            block1 = make_block_from_dict(block1)
+            block2 = make_block_from_dict(block2)
+            
+            state, block = self.ba_star(block1, block2)
+
+        print("state:",
+              state,
+              "\nblock:",
+              block)
+
+        self.blockchain.append(block)
         self.round += 1
+        self.committeeBlockQueue_bc = []
 
     @property
     def last_block(self):
@@ -703,24 +698,3 @@ class Node:
         }
 
         return msg
-
-    def run_ba_star(self):
-        """BA_Star driver."""
-        print("node.run_ba_star: hello")
-        block = make_block_from_dict(self.get_hblock())
-        print("Node", self.node_id, "hpriorityblock:", block)
-        state, block = yield self.env.process(self.ba_star(block))
-        print("Node", self.node_id, "consensused_block:", block)
-        
-        # print(self.ba_star(block_hash))
-        print("state:",
-              state,
-              "\nblock:",
-              block)
-        
-        #TODO: remove this and find some way to add actual blocks
-        self.blockchain.append(block)
-        
-        self.round += 1
-
-

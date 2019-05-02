@@ -315,7 +315,8 @@ class Node:
                         "stake": self.stake
                       }
             
-            signature = self.signPayload(str(payload)).hex()
+            # signature = self.signPayload(str(payload)).hex()
+            signature = random.getrandbits(1000)
 
             message = {
                         "public_key": self.public_key,
@@ -423,6 +424,7 @@ class Node:
         #                        msg["payload"]["stake"],
         #                        self.total_stake)
         subusers = msg["payload"]["j"]
+        
         if not subusers:
             # print("node.process_message: no sub users")
             return default_reply
@@ -593,7 +595,6 @@ class Node:
             return minblock
 
         return self.empty_block
-    
 
     @property
     def last_block(self):
@@ -660,5 +661,3 @@ class Node:
         
         self.round += 1
         self.committeeBlockQueue_bc = []
-
-
