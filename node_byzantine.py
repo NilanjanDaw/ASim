@@ -15,8 +15,7 @@ TAU_STEP = 32
 
 
 # Majority fraction of votes for BA*, T_FRACTION > 2/3(0.666....)
-T_FRACTION = 20/100+        if hblock2:
-+            self.committee_vote("reduction_1", TAU_STEP, hblock2)
+T_FRACTION = 68/100  
 
 # (milliseconds), Wait for this time to listen to priorities broadcast
 LAMBDA_PROPOSER = 3000
@@ -138,7 +137,7 @@ class Node:
        
 
         }
-        if node.is_adversary:
+        if self.is_adversary:
             self.message_generator(self.broadcastpipe, B1)
             self.message_generator(self.broadcastpipe, B2)
         else:
@@ -528,7 +527,7 @@ class Node:
                                  LAMBDA_BLOCK + LAMBDA_PROPOSER))
             
             if not r:
-                if self.common_coin(str(step), TAU) == 0:
+                if self.common_coin(str(step), TAU_STEP) == 0:
                     r = block
                 else:
                     r = empty_block
@@ -596,6 +595,7 @@ class Node:
             return "final", hblock_star
         
         else:
+            print("tentative", hblock_star)
             return "tentative", hblock_star
         
     def get_hblock(self, clear=True):
@@ -632,8 +632,7 @@ class Node:
             block = self.get_hblock()
 
             block = make_block_from_dict(block)
-            state, block = self.ba_star(block)
-
+            state, block = yield self.env.process(self.ba_star(block))
         # Byzantine behaves improperly (when Byz was selected as block proposer)
         else:
             block1 = self.blockcache_bc[0]
@@ -642,7 +641,7 @@ class Node:
             block1 = make_block_from_dict(block1)
             block2 = make_block_from_dict(block2)
             
-            state, block = self.ba_star(block1, block2)
+            state, block = yield self.env.process(self.ba_star(block1, block2))
 
         print("state:",
               state,

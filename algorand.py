@@ -6,8 +6,8 @@ from BroadcastMsg import BroadcastPipe
 from random import shuffle
 from helper import stake_subuser
 
-SIM_DURATION = simpy.core.Infinity
-NODE_COUNT =  10
+SIM_DURATION = 128000 #12800000
+NODE_COUNT =  64
 
 node_list = []
 
