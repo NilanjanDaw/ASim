@@ -106,9 +106,8 @@ class Node:
         priority = self.gossip_block["priority"]
         message = {
             "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
-            "rand_str_256": prg(13), 
-            # check if it is correct
-            "priority_payload": priority,
+            "payload": prg(13), 
+            "priority": priority,
 
         }
         self.message_generator(self.broadcastpipe, message)
@@ -304,7 +303,7 @@ class Node:
 
             self.message_generator(self.broadcastpipe_committee, message)
         else:
-            print("committee_vote: not committee member")
+            print("Node : {} committee_vote: not committee member".format(self.node_id))
 
     def dummy_timeout(self, env, wait_time):
         yield env.timeout(wait_time)
@@ -558,7 +557,7 @@ class Node:
         """
         cache = self.blockcache_bc
         if clear:
-            self.blockcache = []
+            self.blockcache_bc = []
         
         if cache:
             minblock = cache[0]
@@ -567,7 +566,8 @@ class Node:
                     minblock = block
 
             return minblock
-        return None
+        else:
+            return self.empty_block
     
     
     def run_ba_star(self):

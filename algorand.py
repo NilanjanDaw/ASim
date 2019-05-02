@@ -4,7 +4,7 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 SIM_DURATION = 25000
-NODE_COUNT = 10
+NODE_COUNT = 50
 node_list = []
 
 
@@ -35,12 +35,14 @@ def start_simulation(env, node_list, node):
         if node.checkLeader():
             node.blockProposal()
         
-        if node.committeeSelection():
-            print("Node : {} , in Committee".format(node.node_id))
-            yield env.timeout(33) # should be 33 seconds
-            # cast vote
-            # node.castVote()
+        # if node.committeeSelection():
+        #     print("Node : {} , in Committee".format(node.node_id))
+        #     yield env.timeout(33) # should be 33 seconds
+        #     # cast vote
+        #     # node.castVote()
 
+        node.run_ba_star()
+        
         break
         
         # yield env.timeout(1000)
@@ -137,16 +139,12 @@ def start_simulation(env, node_list, node):
         #       ":",
         #       node.get_hblock(clear=False))
         
-        # node.run_ba_star()
         # self.blockchain = []
         # self.blockcache = []
         # self.blockcache_bc = []
         # self.committeeBlockQueue_bc = []
 
-        # if node.committeeSelection():
-        #     yield env.timeout(33) # should be 33 seconds
-        #     # cast vote
-        #     node.castVote()
+       
         loop_counter += 1
 
 total_stake = 0
