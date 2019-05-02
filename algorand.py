@@ -11,7 +11,7 @@ NODE_COUNT =  30
 node_list = []
 
 fail_stop = True
-f = 0.25 # fraction of nodes controlled by adversary
+f = 0 # fraction of nodes controlled by adversary
 f_adversary_list = []
 env = simpy.Environment()
 mu = 200
@@ -136,7 +136,7 @@ def start_simulation(env, node_list, node):
         #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
-        if len(node.blockchain) > 64:
+        if len(node.blockchain) > 0:
             break
 
 total_stake = 0
