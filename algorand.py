@@ -31,10 +31,18 @@ def start_simulation(env, node_list, node):
 
         # yield env.timeout(200)
         yield env.timeout(2000)
-        print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
+        # print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
         if node.checkLeader():
             node.blockProposal()
+        
+        if node.committeeSelection():
+            print("Node : {} , in Committee".format(node.node_id))
+            yield env.timeout(33) # should be 33 seconds
+            # cast vote
+            # node.castVote()
+
         break
+        
         # yield env.timeout(1000)
 
         # Logging states of nodes

@@ -103,7 +103,7 @@ class Node:
     def blockProposal(self):
         print("block proposal started")
         # "<SHA256(Previous block)||256 bit long random string || Node’s Priority payload>"
-        priority = min (block["priority"] for block in self.blockcache)
+        priority = self.gossip_block["priority"]
         message = {
             "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
             "rand_str_256": prg(13), 
@@ -202,16 +202,18 @@ class Node:
                 priority = min (block["priority"] for block in self.blockcache)
                 if self.gossip_block["priority"] <= priority:
                     print("Node {} leader".format(self.node_id))
+                    self.blockcache = []
                     return True
             else:
                 print("blockcache empty")
         else:
             print("Node {} is not a proposer for this round".format(self.node_id))
         
+        self.blockcache = []
         return False
 
     def committeeSelection(self):
-        seed = hashlib.sha256(self.blockchain[-1]) + self.round + "1"
+        seed = hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest() + str(self.round) + "1"
         value = prg(seed)
         # seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, value, TAU,
