@@ -338,7 +338,7 @@ class Node:
         voters = set()  # set of voters Set[public key]
         blockcache = {}
         messages = self.committeeBlockQueue_bc
-        self.committeeBlockQueue_bc = []
+        # self.committeeBlockQueue_bc = []
 
         # TODO: Discuss how to put delay. Followup from reduction function,
         #       search "where_timeout".
@@ -579,27 +579,6 @@ class Node:
 
         return self.empty_block
     
-    
-    def run_ba_star(self):
-        """BA_Star driver."""
-        print("node.run_ba_star: hello")
-        block = self.get_hblock()
-        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-        state, block = self.ba_star(block_hash)
-        print("state:",
-              state,
-              "\nblock:",
-              block)
-        
-        #TODO: remove this and find some way to add actual blocks
-        if block == self.empty_block_hash:
-            print("node.run_ba_star: i agree empty block")
-            self.blockchain.append(self.empty_block)
-        else:
-            print("node.run_ba_star: i agreed on a non empty block")
-            yield self.env.timeout(10**100)
-        
-        self.round += 1
 
     @property
     def last_block(self):
@@ -665,5 +644,6 @@ class Node:
         self.blockchain.append(block)
         
         self.round += 1
+        self.committeeBlockQueue_bc = []
 
 
