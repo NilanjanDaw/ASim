@@ -46,6 +46,7 @@ class Node:
         self.broadcastpipe = bc_pipe #same pipe for all senders
         self.broadcastpipe_committee = bc_pipe_c
         self.env = env
+        self.node_list = []
         self.generateCryptoKeys()
         genesis_block = {"prev_hash": 0, "payload": genesis_string}
         self.blockchain.append(genesis_block)
@@ -93,7 +94,7 @@ class Node:
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            # print("Block ready to be gossiped:", gossip_message)
+            print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
             return gossip_message
         else:
             print("Node not selected for this round")
@@ -102,7 +103,7 @@ class Node:
     def blockProposal(self):
         print("block proposal started")
         # "<SHA256(Previous block)||256 bit long random string || Node’s Priority payload>"
-        priority = min (block["priority"] for block in self.blockcache)
+        priority = self.gossip_block["priority"]
         message = {
             "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
             "payload": prg(13),
@@ -163,7 +164,11 @@ class Node:
             block = yield self.cable.get()
             if block is not None:
                 # print("{} received block {}".format(self.node_id, block))
-                self.blockcache.append(block)
+                # 1. validate
+                if block not in self.blockcache:
+                    self.blockcache.append(block)
+                    print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
+                    self.sendBlock(self.node_list, block)
 
     def generateGossipMessage(self, vrf_hash, subuser_index, priority):
         message = {
@@ -195,18 +200,20 @@ class Node:
         if self.gossip_block is not None:
             if len(self.blockcache) > 0:
                 priority = min (block["priority"] for block in self.blockcache)
-                if self.gossip_block["priority"] < priority:
+                if self.gossip_block["priority"] <= priority:
                     print("Node {} leader".format(self.node_id))
+                    self.blockcache = []
                     return True
             else:
                 print("blockcache empty")
         else:
             print("Node {} is not a proposer for this round".format(self.node_id))
         
+        self.blockcache = []
         return False
 
     def committeeSelection(self):
-        seed = hashlib.sha256(self.blockchain[-1]) + self.round + "1"
+        seed = hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest() + str(self.round) + "1"
         value = prg(seed)
         # seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, value, TAU,
@@ -563,6 +570,35 @@ class Node:
             return minblock
         return self.empty_block
     
+    
+    def run_ba_star(self):
+        """BA_Star driver."""
+        print("node.run_ba_star: hello")
+        block = self.get_hblock()
+        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
+        state, block = self.ba_star(block_hash)
+        print("state:",
+              state,
+              "\nblock:",
+              block)
+        
+        #TODO: remove this and find some way to add actual blocks
+        if block == self.empty_block_hash:
+            print("node.run_ba_star: i agree empty block")
+            self.blockchain.append(self.empty_block)
+        else:
+            print("node.run_ba_star: i agreed on a non empty block")
+            yield self.env.timeout(10**100)
+        
+        self.round += 1
+
+
+
+
+
+
+
+
     @property
     def last_block(self):
         """Return last block of blockchain."""
@@ -609,6 +645,7 @@ class Node:
 
         return msg
 
+<<<<<<< HEAD
     def run_ba_star(self):
         """BA_Star driver."""
         print("node.run_ba_star: hello")
@@ -624,4 +661,27 @@ class Node:
         self.blockchain.append(self.empty_block)
         
         self.round += 1
+=======
+    # def run_ba_star(self):
+    #     """BA_Star driver."""
+    #     print("node.run_ba_star: hello")
+    #     block = self.get_hblock()
+    #     block_hash = hashlib.sha256(str(block).encode()).hexdigest()
+    #     state, block = self.ba_star(block_hash)
+    #     print("state:",
+    #           state,
+    #           "\nblock:",
+    #           block)
+        
+    #     #TODO: remove this and find some way to add actual blocks
+    #     # if block == self.empty_block_hash:
+    #     #     print("node.run_ba_star: i agree empty block")
+    #     #     self.blockchain.append(self.empty_block)
+    #     # else:
+    #     #     print("node.run_ba_star: i agreed on a non empty block")
+    #     #     yield self.env.timeout(10**100)
+        
+    #     # self.round += 1
+
+>>>>>>> fd9761c9f296346f27b5286b33bf805bb1785649
 
