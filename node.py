@@ -301,7 +301,8 @@ class Node:
                         "stake": self.stake
                       }
             
-            signature = self.signPayload(str(payload)).hex()
+            # signature = self.signPayload(str(payload)).hex()
+            signature = random.getrandbits(1000)
 
             message = {
                         "public_key": self.public_key,
@@ -337,7 +338,7 @@ class Node:
         voters = set()  # set of voters Set[public key]
         blockcache = {}
         messages = self.committeeBlockQueue_bc
-        self.committeeBlockQueue_bc = []
+        # self.committeeBlockQueue_bc = []
 
         # TODO: Discuss how to put delay. Followup from reduction function,
         #       search "where_timeout".
@@ -388,11 +389,11 @@ class Node:
         default_reply = 0, None, None  # reply in case of errors
         msg = hblock_gossip_msg  # rename for comfort
 
-        if not validate_signature(msg["public_key"],
-                                  str(msg["payload"]),
-                                  msg["signature"]):
-            print("node.process_message: signature verify failed")
-            return default_reply
+        # if not validate_signature(msg["public_key"],
+        #                           str(msg["payload"]),
+        #                           msg["signature"]):
+        #     print("node.process_message: signature verify failed")
+        #     return default_reply
 
         if msg["payload"]["prev_block_hash"] != self.last_block_hash:
             print("node.process_message: last block hash not match")
@@ -400,12 +401,13 @@ class Node:
 
         # TODO: implement verify sortition function
         seed = vrf_seed(self.last_block_hash, self.round, step)
-        subusers = verify_sort(msg["public_key"],
-                               msg["payload"]["vrf_hash"],
-                               seed,
-                               TAU_STEP,
-                               msg["payload"]["stake"],
-                               self.total_stake)
+        # subusers = verify_sort(msg["public_key"],
+        #                        msg["payload"]["vrf_hash"],
+        #                        seed,
+        #                        TAU_STEP,
+        #                        msg["payload"]["stake"],
+        #                        self.total_stake)
+        subusers = msg["payload"]["j"]
         
         if not subusers:
             print("node.process_message: no sub users")
@@ -577,28 +579,6 @@ class Node:
             return minblock
 
         return self.empty_block
-    
-    
-    def run_ba_star(self):
-        """BA_Star driver."""
-        print("node.run_ba_star: hello")
-        block = self.get_hblock()
-        block_hash = hashlib.sha256(str(block).encode()).hexdigest()
-        state, block = self.ba_star(block_hash)
-        print("state:",
-              state,
-              "\nblock:",
-              block)
-        
-        #TODO: remove this and find some way to add actual blocks
-        if block == self.empty_block_hash:
-            print("node.run_ba_star: i agree empty block")
-            self.blockchain.append(self.empty_block)
-        else:
-            print("node.run_ba_star: i agreed on a non empty block")
-            yield self.env.timeout(10**100)
-        
-        self.round += 1
 
     @property
     def last_block(self):
@@ -664,5 +644,4 @@ class Node:
         self.blockchain.append(block)
         
         self.round += 1
-
-
+        self.committeeBlockQueue_bc = []

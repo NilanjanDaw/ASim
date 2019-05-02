@@ -4,7 +4,7 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 
-SIM_DURATION = 12800000
+SIM_DURATION = simpy.core.Infinity
 NODE_COUNT =  10
 
 node_list = []
@@ -140,5 +140,5 @@ for node in node_list:
 for node in node_list:
     env.process(start_simulation(env, node_list, node))
 
-env.run(until=simpy.core.Infinity)
+env.run(until=SIM_DURATION)
 
