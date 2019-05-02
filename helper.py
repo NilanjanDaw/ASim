@@ -3,6 +3,7 @@ import ecdsa
 import hashlib
 import math
 
+stake_subuser = [0] * 50
 
 def prg(seed):
     random.seed(seed)

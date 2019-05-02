@@ -4,9 +4,10 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 from random import shuffle
+from helper import stake_subuser
 
 SIM_DURATION = 128000 #12800000
-NODE_COUNT =  30
+NODE_COUNT =  64
 
 node_list = []
 
@@ -136,7 +137,8 @@ def start_simulation(env, node_list, node):
         #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
-        if len(node.blockchain) > 63:
+        if len(node.blockchain) > 64:
+            print(stake_subuser)
             break
 
 total_stake = 0
@@ -166,4 +168,4 @@ for node in node_list:
     env.process(start_simulation(env, node_list, node))
 
 env.run(until=simpy.core.Infinity)
-
+print("stake subuser \n\n", stake_subuser)
