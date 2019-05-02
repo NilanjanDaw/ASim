@@ -11,7 +11,7 @@ NODE_COUNT =  30
 node_list = []
 
 fail_stop = True
-f = 0.10 # fraction of nodes controlled by adversary
+f = 0.25 # fraction of nodes controlled by adversary
 f_adversary_list = []
 env = simpy.Environment()
 mu = 200
@@ -92,39 +92,48 @@ def start_simulation(env, node_list, node):
         yield env.timeout(3000)
 
         # print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
-        if fail_stop == False or (fail_stop == True and node.is_fail_stop_adversary == False) :
-          if node.checkLeader():
-              node.blockProposal()   
+        if node.checkLeader():
+          if fail_stop == False or (fail_stop == True and node.is_fail_stop_adversary == False) :
+            node.blockProposal()   
 
-          yield env.timeout(3000)
-          
-          print(env.now,
-                ":",
-                "blockcache_bc:",
-                node.node_id,
-                ":",
-                loop_counter,
-                ":",
-                len(node.blockcache_bc),
-                ":",
-                node.blockcache_bc)
-          
-          yield env.process(node.run_ba_star())
+        yield env.timeout(3000)
+        if not node.blockcache_bc:
+          empty_block = node.empty_block
+          node.blockchain.append(empty_block)
+          node.round += 1
+          loop_counter += 1
+          if len(node.blockchain) > 64:
+            break
+          continue  
+        
+        print(env.now,
+              ":",
+              "blockcache_bc:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockcache_bc),
+              ":",
+              node.blockcache_bc)
+        
+        yield env.process(node.run_ba_star())
 
-          print(env.now,
-                ":",
-                "blockchain:",
-                node.node_id,
-                ":",
-                loop_counter,
-                ":",
-                len(node.blockchain),
-                ":",
-                node.blockchain)
+        print(env.now,
+              ":",
+              "blockchain:",
+              node.node_id,
+              ":",
+              loop_counter,
+              ":",
+              len(node.blockchain),
+              ":",
+              node.blockchain)
 
-        else:
-          if node.checkLeader():
-            print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
+        
+        # node.round += 1
+        # if node.checkLeader():
+        #   print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
         if len(node.blockchain) > 64:
