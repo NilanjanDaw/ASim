@@ -97,17 +97,18 @@ class Node:
         seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        print("Priority Proposal Node {}, Round {}, Step {}, subusers {}".format(self.node_id, self.round, step, j))
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            print("Node id : {} Block ready to be gossiped:".format(self.node_id))
+            # print("Node id : {} Block ready to be gossiped:".format(self.node_id))
             return gossip_message
         else:
-            print("Node {} not selected for this round".format(self.node_id))
+            # print("Node {} not selected for this round".format(self.node_id))
             return None
 
     def blockProposal(self):
-        print("block proposal started")
+        # print("block proposal started")
         # "<SHA256(Previous block)||256 bit long random string || Node’s Priority payload>"
         priority = self.gossip_block["priority"]
         message = {
@@ -118,7 +119,7 @@ class Node:
 
         }
         self.message_generator(self.broadcastpipe, message)
-        print("block proposal done")
+        # print("block proposal done")
     
     def message_generator(self, out_pipe, message):
         # This is the transmission delay but set it according to message length
@@ -194,6 +195,7 @@ class Node:
         seed = vrf_seed(hash_prev_block, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        print("Node {}, Round {}, Step {}, subusers {}", self.node_id, self.round, step, j)
         # change it to json format
         message = {
             "hash_prev_block": hashlib.sha256(self.blockchain[-1]),
@@ -204,18 +206,23 @@ class Node:
         }
         return message
 
+    def sortGetElement(self, element):
+        return element["priority"]
+
     def checkLeader(self):
+        self.blockcache.sort(key=self.sortGetElement, reverse=True)
+        print("Received Proposals", self.blockcache)
         if self.gossip_block is not None:
             if len(self.blockcache) > 0:
                 priority = min (block["priority"] for block in self.blockcache)
                 if self.gossip_block["priority"] <= priority:
-                    print("Node {} leader".format(self.node_id))
+                    print("Round {} Node {} selected as leader".format(self.round, self.node_id))
                     self.blockcache = []
                     return True
             else:
                 print("blockcache empty")
-        else:
-            print("Node {} is not a proposer for round: {}".format(self.node_id, self.round))
+        # else:
+            # print("Node {} is not a proposer for round: {}".format(self.node_id, self.round))
         
         self.blockcache = []
         return False
@@ -226,6 +233,7 @@ class Node:
         # seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, value, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        print("Committee Selection Node {}, Round {}, subusers {}".format(self.node_id, self.round, j))
         # do cryptographic sortition , use tau_step
         # return True/False based on selection
         if j > 0:
@@ -290,7 +298,7 @@ class Node:
         seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_STEP,
                                 self.stake, self.total_stake)
-
+        print("Committee Vote Node {}, Round {}, Step {}, subusers {}".format(self.node_id, self.round, step, j))
         if j > 0:
             payload = {
                         "round": self.round,
@@ -312,8 +320,8 @@ class Node:
                       }
 
             self.message_generator(self.broadcastpipe_committee, message)
-        else:
-            print("Node : {} committee_vote: not committee member".format(self.node_id))
+        # else:
+        #     print("Node : {} committee_vote: not committee member".format(self.node_id))
 
     def dummy_timeout(self, env, wait_time):
         yield env.timeout(wait_time)
@@ -338,6 +346,7 @@ class Node:
         count = {}  # count votes Dictionary[Block, votes]
         voters = set()  # set of voters Set[public key]
         blockcache = {}
+        chosen_block = None
         messages = self.committeeBlockQueue_bc
         # self.committeeBlockQueue_bc = []
 
@@ -348,7 +357,7 @@ class Node:
 
             if not ((msg["payload"]["round"] == self.round) and
                     (msg["payload"]["step"] == step)):
-                print("count_votes: message skipped due to different rounds")
+                # print("count_votes: message skipped due to different rounds")
                 continue
 
             votes, block, sorthash = self.process_message(step, TAU_STEP, msg)
@@ -367,10 +376,11 @@ class Node:
                 count[block_hash] = votes
 
             if count[block_hash] > majority_frac * tau:
-                return blockcache[block_hash]
-        
-        print("count_votes: no block selected")
-        return None
+                chosen_block = blockcache[block_hash]
+        print("=== Votes received ===\n", count)
+        # if not chosen_block:
+        #     print("count_votes: no block selected")
+        return chosen_block
 
     def process_message(self, step, tau, hblock_gossip_msg):
         # TODO: Fix verfiy sortition of another user.
@@ -411,7 +421,7 @@ class Node:
         subusers = msg["payload"]["j"]
         
         if not subusers:
-            print("node.process_message: no sub users")
+            # print("node.process_message: no sub users")
             return default_reply
 
         # TODO: Fix accorinding to message attributes
@@ -629,17 +639,17 @@ class Node:
 
     def run_ba_star(self):
         """BA_Star driver."""
-        print("node.run_ba_star: hello")
+        # print("node.run_ba_star: hello")
         block = make_block_from_dict(self.get_hblock())
-        print("Node", self.node_id, "hpriorityblock:", block)
+        # print("Node", self.node_id, "hpriorityblock:", block)
         state, block = yield self.env.process(self.ba_star(block))
-        print("Node", self.node_id, "consensused_block:", block)
+        print("Node", self.node_id, "consensus_block:", block)
         
         # print(self.ba_star(block_hash))
-        print("state:",
-              state,
-              "\nblock:",
-              block)
+        # print("state:",
+        #       state,
+        #       "\nblock:",
+        #       block)
         
         #TODO: remove this and find some way to add actual blocks
         self.blockchain.append(block)
