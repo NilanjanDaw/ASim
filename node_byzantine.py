@@ -39,6 +39,7 @@ class Node:
         self.stake = randint(1, 50)
         self.total_stake = 0
         self.cable = network.Network(env, network_delay)
+        self.cable_byzantine = network.Network(env, network_delay)
         self.gossip_block = None
         self.neighbourList = []
         self.blockchain = []
@@ -117,6 +118,7 @@ class Node:
             "payload": prg(13),
             "round": self.round,
             "priority": priority,
+      
 
         }
         B2 = {
@@ -124,13 +126,22 @@ class Node:
             "payload": prg(131), # conflicting 
             "round": self.round,
             "priority": priority,
+        
+
+        }
+        B3 = {
+            "hash_prev_block": hashlib.sha256(str(self.blockchain[-1]).encode()).hexdigest(), 
+            "payload": prg(131), # conflicting 
+            "round": self.round,
+            "priority": priority,
+       
 
         }
         if node.is_adversary:
             self.message_generator(self.broadcastpipe, B1)
             self.message_generator(self.broadcastpipe, B2)
         else:
-            self.sendBlock(self.node_list, B1)
+            self.sendBlock(self.node_list, B3)
         print("block proposal done")
     
     def message_generator(self, out_pipe, message):
@@ -150,17 +161,30 @@ class Node:
                 self.sendBlock(self.node_list,self.blockcache_bc[i])
             # print('received message: %s.' %(msg))
 
-    def message_generator_c(self, out_pipe, message):
-        yield self.env.timeout(self.delay)
-        out_pipe.put(message)
+    def message_generator_c(self, block):
+        for id in self.neighbourList:
+            node_list[id].cable_byzantine.put(block)
+        
 
 
-    def message_consumer_c(self, in_pipe):
+    def message_consumer_c(self):
         while True:
-            msg = yield in_pipe.get()
-            # print("msg receive----committee----------------")
-            self.committeeBlockQueue_bc.append(msg)
-            # print('received message: %s.' %(msg))
+            block = yield self.cable_byzantine.get()
+            if block is not None:
+                # print("{} received block {}".format(self.node_id, block))
+                if len(self.blockcache_bc) == 0: # Honest node is proposer
+                    if block not in self.committeeBlockQueue_bc:
+                        self.committeeBlockQueue_bc.append(block)
+                        # print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
+                        self.sendBlock(self.node_list, block)
+                else: # byzantine
+                    if make_block_from_dict(self.gossiped_during_proposal) == make_block_from_dict(block):
+                        self.committeeBlockQueue_bc.append(block)
+                        self.sendBlock(self.node_list, block)
+                    else:
+                        # if I get a msg which i didn't forward (out of B1 and B2), then i do nothing
+                        pass
+
 
 
     def getPriority(self, vrf_hash, subuser_count):
@@ -617,8 +641,9 @@ class Node:
             print("node.run_ba_star: hello")
             block1 = self.blockcache_bc[0]
             block2 = self.blockcache_bc[1]
-            block_hash1 = hashlib.sha256(str(block1).encode()).hexdigest()
-            block_hash2 = hashlib.sha256(str(block2).encode()).hexdigest()
+            block1 = make_block_from_dict(block_hash1)
+            block2 = make_block_from_dict(block_hash2)
+
             state1, block1 = self.ba_star(block_hash1)
             state2, block2 = self.ba_star(block_hash2)
             print("state:",
