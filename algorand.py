@@ -11,7 +11,7 @@ NODE_COUNT =  30
 node_list = []
 
 fail_stop = True
-f = 0 # fraction of nodes controlled by adversary
+f = 0.25 # fraction of nodes controlled by adversary
 f_adversary_list = []
 env = simpy.Environment()
 mu = 200
@@ -153,7 +153,7 @@ for node_id in range(NODE_COUNT):
 l = list(range(NODE_COUNT))
 shuffle(l)
 l = l[0:int(f*len(l))]
-print("Number of nodes controlled by adversary:",len(l))
+print("List of adversary nodes:", l)
 
 for node in node_list:
     node.total_stake = total_stake
