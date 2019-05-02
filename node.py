@@ -389,11 +389,11 @@ class Node:
         default_reply = 0, None, None  # reply in case of errors
         msg = hblock_gossip_msg  # rename for comfort
 
-        if not validate_signature(msg["public_key"],
-                                  str(msg["payload"]),
-                                  msg["signature"]):
-            print("node.process_message: signature verify failed")
-            return default_reply
+        # if not validate_signature(msg["public_key"],
+        #                           str(msg["payload"]),
+        #                           msg["signature"]):
+        #     print("node.process_message: signature verify failed")
+        #     return default_reply
 
         if msg["payload"]["prev_block_hash"] != self.last_block_hash:
             print("node.process_message: last block hash not match")
@@ -401,13 +401,13 @@ class Node:
 
         # TODO: implement verify sortition function
         seed = vrf_seed(self.last_block_hash, self.round, step)
-        subusers = verify_sort(msg["public_key"],
-                               msg["payload"]["vrf_hash"],
-                               seed,
-                               TAU_STEP,
-                               msg["payload"]["stake"],
-                               self.total_stake)
-        
+        # subusers = verify_sort(msg["public_key"],
+        #                        msg["payload"]["vrf_hash"],
+        #                        seed,
+        #                        TAU_STEP,
+        #                        msg["payload"]["stake"],
+        #                        self.total_stake)
+        subusers = msg["payload"]["j"]
         if not subusers:
             print("node.process_message: no sub users")
             return default_reply
