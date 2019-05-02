@@ -30,11 +30,11 @@ def start_simulation(env, node_list, node):
         node.gossip_block = block
 
         # yield env.timeout(200)
-        yield env.timeout(200)
-        
-        # if node.checkLeader():
-        #     node.blockProposal()
-        
+        yield env.timeout(2000)
+        print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
+        if node.checkLeader():
+            node.blockProposal()
+        break
         # yield env.timeout(1000)
 
         # Logging states of nodes
@@ -154,9 +154,9 @@ for node_id in range(NODE_COUNT):
 
 for node in node_list:
     node.total_stake = total_stake
+    node.node_list = node_list
 
 for node in node_list:
-    print("########################################################",env.now)
     env.process(start_simulation(env, node_list, node))
 
 env.run(until=SIM_DURATION)

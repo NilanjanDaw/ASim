@@ -46,6 +46,7 @@ class Node:
         self.broadcastpipe = bc_pipe #same pipe for all senders
         self.broadcastpipe_committee = bc_pipe_c
         self.env = env
+        self.node_list = []
         self.generateCryptoKeys()
         genesis_block = {"prev_hash": 0, "payload": genesis_string}
         self.blockchain.append(genesis_block)
@@ -93,7 +94,7 @@ class Node:
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
             gossip_message = self.generateGossipMessage(vrf_hash, subuser_index, max_priority)
-            # print("Block ready to be gossiped:", gossip_message)
+            print("Node id : {} Block ready to be gossiped:".format(self.node_id), gossip_message)
             return gossip_message
         else:
             print("Node not selected for this round")
@@ -166,7 +167,8 @@ class Node:
                 # 1. validate
                 if block not in self.blockcache:
                     self.blockcache.append(block)
-                    self.sendBlock(self.neighbourList, block)
+                    print("Node id: {} , I will gossip block to my nbs {}".format(self.node_id, self.neighbourList))
+                    self.sendBlock(self.node_list, block)
 
     def generateGossipMessage(self, vrf_hash, subuser_index, priority):
         message = {
@@ -198,7 +200,7 @@ class Node:
         if self.gossip_block is not None:
             if len(self.blockcache) > 0:
                 priority = min (block["priority"] for block in self.blockcache)
-                if self.gossip_block["priority"] < priority:
+                if self.gossip_block["priority"] <= priority:
                     print("Node {} leader".format(self.node_id))
                     return True
             else:
