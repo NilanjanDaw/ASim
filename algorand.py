@@ -4,14 +4,15 @@ import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
 from random import shuffle
+from copy import deepcopy
 
 SIM_DURATION = 128000 #12800000
-NODE_COUNT =  10
+NODE_COUNT =  30
 
 node_list = []
 
 fail_stop = True
-f = 0.05 # fraction of nodes controlled by adversary
+f = 0.10 # fraction of nodes controlled by adversary
 f_adversary_list = []
 env = simpy.Environment()
 mu = 200
@@ -141,7 +142,7 @@ for node_id in range(NODE_COUNT):
     env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
     node_list.append(node)
 
-f_adversary_list = node_list
+f_adversary_list = deepcopy(node_list)
 shuffle(f_adversary_list)
 f_adversary_list = f_adversary_list[0:int(f*len(f_adversary_list))]
 print("Number of nodes controlled by adversary:",len(f_adversary_list))
