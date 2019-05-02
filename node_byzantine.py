@@ -605,9 +605,9 @@ class Node:
         Hidden Arguments:
         blockcache -- Blockchain, state of ledger
         """
-        cache = self.blockcache_bc
+        cache = self.blockcache
         if clear:
-            self.blockcache_bc = []
+            self.blockcache = []
         
         if cache:
             minblock = cache[0]
@@ -622,6 +622,7 @@ class Node:
     
     def run_ba_star(self):
         """BA_Star driver."""
+        # Honest Working
         if len(self.blockcache_bc) == 0:
             print("node.run_ba_star: hello")
             block = self.get_hblock()
@@ -636,7 +637,7 @@ class Node:
         
             self.round += 1
             self.committeeBlockQueue_bc = []
-
+        # Byzantine behaves improperly (when Byz was selected as block proposer)
         else:
             print("node.run_ba_star: hello")
             block1 = self.blockcache_bc[0]
@@ -704,23 +705,4 @@ class Node:
 
         return msg
 
-    def run_ba_star(self):
-        """BA_Star driver."""
-        print("node.run_ba_star: hello")
-        block = make_block_from_dict(self.get_hblock())
-        print("Node", self.node_id, "hpriorityblock:", block)
-        state, block = yield self.env.process(self.ba_star(block))
-        print("Node", self.node_id, "consensused_block:", block)
-        
-        # print(self.ba_star(block_hash))
-        print("state:",
-              state,
-              "\nblock:",
-              block)
-        
-        #TODO: remove this and find some way to add actual blocks
-        self.blockchain.append(block)
-        
-        self.round += 1
-
-
+    
