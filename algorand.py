@@ -3,13 +3,16 @@ import simpy
 import numpy as np
 from node import Node
 from BroadcastMsg import BroadcastPipe
+from random import shuffle
 
-SIM_DURATION = 12800000
+SIM_DURATION = 128000 #12800000
 NODE_COUNT =  10
 
 node_list = []
 
-
+fail_stop = True
+f = 0.05 # fraction of nodes controlled by adversary
+f_adversary_list = []
 env = simpy.Environment()
 mu = 200
 signa = 400
@@ -89,34 +92,39 @@ def start_simulation(env, node_list, node):
         yield env.timeout(3000)
 
         # print("Node : {} , blockcache: {}".format(node.node_id,node.blockcache))
-        if node.checkLeader():
-            node.blockProposal()   
+        if fail_stop == False or (fail_stop == True and node.is_fail_stop_adversary == False) :
+          if node.checkLeader():
+              node.blockProposal()   
 
-        yield env.timeout(3000)
-        
-        print(env.now,
-              ":",
-              "blockcache_bc:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockcache_bc),
-              ":",
-              node.blockcache_bc)
-        
-        yield env.process(node.run_ba_star())
+          yield env.timeout(3000)
+          
+          print(env.now,
+                ":",
+                "blockcache_bc:",
+                node.node_id,
+                ":",
+                loop_counter,
+                ":",
+                len(node.blockcache_bc),
+                ":",
+                node.blockcache_bc)
+          
+          yield env.process(node.run_ba_star())
 
-        print(env.now,
-              ":",
-              "blockchain:",
-              node.node_id,
-              ":",
-              loop_counter,
-              ":",
-              len(node.blockchain),
-              ":",
-              node.blockchain)
+          print(env.now,
+                ":",
+                "blockchain:",
+                node.node_id,
+                ":",
+                loop_counter,
+                ":",
+                len(node.blockchain),
+                ":",
+                node.blockchain)
+
+        else:
+          if node.checkLeader():
+            print("I'm byazntine Node {}, and I'm Leader".format(node.node_id))
 
         loop_counter += 1
         if len(node.blockchain) > 64:
@@ -133,9 +141,17 @@ for node_id in range(NODE_COUNT):
     env.process(node.message_consumer_c(bc_pipe_c.get_output_conn()))
     node_list.append(node)
 
+f_adversary_list = node_list
+shuffle(f_adversary_list)
+f_adversary_list = f_adversary_list[0:int(f*len(f_adversary_list))]
+print("Number of nodes controlled by adversary:",len(f_adversary_list))
+
 for node in node_list:
     node.total_stake = total_stake
     node.node_list = node_list
+    if node in f_adversary_list:
+      node.is_fail_stop_adversary = True
+
 
 for node in node_list:
     env.process(start_simulation(env, node_list, node))

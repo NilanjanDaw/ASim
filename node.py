@@ -50,6 +50,7 @@ class Node:
         self.env = env
         self.node_list = []
         self.delay = statistical_delay
+        self.is_fail_stop_adversary = False
         self.generateCryptoKeys()
         genesis_block = {"prev_hash": 0, "payload": genesis_string}
         self.blockchain.append(genesis_block)
