@@ -97,6 +97,8 @@ class Node:
         seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        print(self.stake)
+        stake_subuser[self.stake] += j
         print("Priority Proposal Node {}, Round {}, Step {}, subusers {}".format(self.node_id, self.round, step, j))
         if j > 0:
             max_priority, subuser_index = self.getPriority(vrf_hash, j)
@@ -195,6 +197,7 @@ class Node:
         seed = vrf_seed(hash_prev_block, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        stake_subuser[self.stake] += j
         print("Node {}, Round {}, Step {}, subusers {}", self.node_id, self.round, step, j)
         # change it to json format
         message = {
@@ -233,6 +236,7 @@ class Node:
         # seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, value, TAU_PROPOSER,
                                 self.stake, self.total_stake)
+        stake_subuser[self.stake] += j
         print("Committee Selection Node {}, Round {}, subusers {}".format(self.node_id, self.round, j))
         # do cryptographic sortition , use tau_step
         # return True/False based on selection
@@ -298,6 +302,7 @@ class Node:
         seed = vrf_seed(self.last_block_hash, self.round, step)
         j, vrf_hash = sortition(self.private_key, seed, TAU_STEP,
                                 self.stake, self.total_stake)
+        stake_subuser[self.stake] += j
         print("Committee Vote Node {}, Round {}, Step {}, subusers {}".format(self.node_id, self.round, step, j))
         if j > 0:
             payload = {
