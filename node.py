@@ -64,6 +64,7 @@ class Node:
 
         neighbour_count = randint(neighbour_min, neighbour_max)
         x = [i for i in range(node_count)]
+        x.remove(self.node_id)
         shuffle(x)
         self.neighbourList = x[:neighbour_count]
         print("Node {} neighbour list".format(self.node_id),
@@ -596,13 +597,6 @@ class Node:
             yield self.env.timeout(10**100)
         
         self.round += 1
-
-
-
-
-
-
-
 
     @property
     def last_block(self):
